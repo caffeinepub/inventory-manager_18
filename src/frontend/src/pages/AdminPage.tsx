@@ -1,6 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -11,13 +17,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Inbox,
   Loader2,
   LogIn,
+  MessageSquare,
   Package,
   Pencil,
   Plus,
+  Reply,
   ShieldOff,
   Trash2,
 } from "lucide-react";
@@ -29,6 +38,7 @@ import DeleteConfirmDialog from "../components/DeleteConfirmDialog";
 import ItemForm from "../components/ItemForm";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
+  useAllHelpMessages,
   useAllItems,
   useAllMessages,
   useCreateItem,
@@ -36,10 +46,16 @@ import {
   useDeleteMessage,
   useIsAdmin,
   useMarkMessageRead,
+  useReplyToHelpMessage,
+  useReplyToMessage,
   useUnreadMessageCount,
   useUpdateItem,
 } from "../hooks/useQueries";
-import type { ContactMessage, ItemFormData } from "../hooks/useQueries";
+import type {
+  ContactMessage,
+  HelpMessage,
+  ItemFormData,
+} from "../hooks/useQueries";
 
 const HEADER_SKELETON_KEYS = ["hs-a", "hs-b"];
 const ROW_SKELETON_KEYS = ["rs-a", "rs-b", "rs-c", "rs-d", "rs-e", "rs-f"];
@@ -62,6 +78,84 @@ function formatDateTime(nanoseconds: bigint): string {
   });
 }
 
+interface ReplyDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  messageId: bigint | null;
+  isHelpMessage?: boolean;
+}
+
+function ReplyDialog({
+  open,
+  onOpenChange,
+  messageId,
+  isHelpMessage = false,
+}: ReplyDialogProps) {
+  const [replyText, setReplyText] = useState("");
+  const replyToMessage = useReplyToMessage();
+  const replyToHelp = useReplyToHelpMessage();
+
+  const isPending = replyToMessage.isPending || replyToHelp.isPending;
+
+  const handleSubmit = async () => {
+    if (!messageId || !replyText.trim()) {
+      toast.error("Please enter a reply.");
+      return;
+    }
+    try {
+      if (isHelpMessage) {
+        await replyToHelp.mutateAsync({ id: messageId, replyText });
+      } else {
+        await replyToMessage.mutateAsync({ id: messageId, replyText });
+      }
+      toast.success("Reply sent!");
+      setReplyText("");
+      onOpenChange(false);
+    } catch {
+      toast.error("Failed to send reply.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-ocid="admin.reply_dialog">
+        <DialogHeader>
+          <DialogTitle>Reply to Message</DialogTitle>
+        </DialogHeader>
+        <Textarea
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+          placeholder="Type your reply..."
+          className="min-h-[100px] resize-none"
+          data-ocid="admin.messages.reply_input"
+        />
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            data-ocid="admin.reply_cancel_button"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={isPending}
+            className="bg-primary text-primary-foreground"
+            data-ocid="admin.messages.reply_submit_button"
+          >
+            {isPending ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Reply className="w-4 h-4 mr-2" />
+            )}
+            Send Reply
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface MessagesTabProps {
   isAdmin: boolean;
 }
@@ -73,6 +167,7 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
   const [deleteTarget, setDeleteTarget] = useState<ContactMessage | undefined>(
     undefined,
   );
+  const [replyTarget, setReplyTarget] = useState<bigint | null>(null);
 
   // Mark all unread as read when tab mounts or messages change
   useEffect(() => {
@@ -167,9 +262,157 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
                   </a>
                 </TableCell>
                 <TableCell>
-                  <p className="text-sm text-muted-foreground max-w-xs truncate">
-                    {msg.message}
-                  </p>
+                  <div>
+                    <p className="text-sm text-muted-foreground max-w-xs truncate">
+                      {msg.message}
+                    </p>
+                    {msg.adminReply && (
+                      <div className="mt-1.5 px-2 py-1.5 rounded bg-green-50 border border-green-200 max-w-xs">
+                        <p className="text-xs font-semibold text-green-700 mb-0.5">
+                          Reply:
+                        </p>
+                        <p className="text-xs text-green-800">
+                          {msg.adminReply}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {formatDateTime(msg.createdAt)}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setReplyTarget(msg.id)}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                      data-ocid={`admin.messages.reply_button.${idx + 1}`}
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(msg)}
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      data-ocid={`admin.messages.delete_button.${idx + 1}`}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <ReplyDialog
+        open={replyTarget !== null}
+        onOpenChange={(open) => !open && setReplyTarget(null)}
+        messageId={replyTarget}
+        isHelpMessage={false}
+      />
+
+      <DeleteConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(undefined)}
+        itemName={deleteTarget ? `message from ${deleteTarget.name}` : ""}
+        onConfirm={handleDeleteConfirm}
+        isPending={deleteMessage.isPending}
+      />
+    </>
+  );
+}
+
+// ── Help Messages Tab ─────────────────────────────────────────────────────
+
+function HelpMessagesTab() {
+  const { data: messages, isLoading } = useAllHelpMessages(true);
+  const [replyTarget, setReplyTarget] = useState<bigint | null>(null);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {ROW_SKELETON_KEYS.map((k) => (
+          <Skeleton key={k} className="h-12 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!messages || messages.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-md"
+        data-ocid="admin.help.empty_state"
+      >
+        <MessageSquare className="w-10 h-10 text-muted-foreground/30 mb-3" />
+        <p className="text-sm text-muted-foreground">No help messages yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="rounded-md border border-border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                From
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                Message
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden md:table-cell">
+                Date
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
+                Reply
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {messages.map((msg: HelpMessage, idx: number) => (
+              <TableRow
+                key={msg.id.toString()}
+                className="border-border hover:bg-muted/20"
+                data-ocid={`admin.help.item.${idx + 1}`}
+              >
+                <TableCell>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {msg.name}
+                    </p>
+                    <a
+                      href={`mailto:${msg.email}`}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {msg.email}
+                    </a>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <p className="text-sm text-muted-foreground max-w-xs truncate">
+                      {msg.message}
+                    </p>
+                    {msg.adminReply && (
+                      <div className="mt-1.5 px-2 py-1.5 rounded bg-green-50 border border-green-200 max-w-xs">
+                        <p className="text-xs font-semibold text-green-700 mb-0.5">
+                          Your reply:
+                        </p>
+                        <p className="text-xs text-green-800">
+                          {msg.adminReply}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   <span className="font-mono text-xs text-muted-foreground">
@@ -180,11 +423,11 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setDeleteTarget(msg)}
-                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                    data-ocid={`admin.messages.delete_button.${idx + 1}`}
+                    onClick={() => setReplyTarget(msg.id)}
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                    data-ocid={`admin.help.reply_button.${idx + 1}`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Reply className="w-3.5 h-3.5" />
                   </Button>
                 </TableCell>
               </TableRow>
@@ -193,12 +436,11 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
         </Table>
       </div>
 
-      <DeleteConfirmDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(undefined)}
-        itemName={deleteTarget ? `message from ${deleteTarget.name}` : ""}
-        onConfirm={handleDeleteConfirm}
-        isPending={deleteMessage.isPending}
+      <ReplyDialog
+        open={replyTarget !== null}
+        onOpenChange={(open) => !open && setReplyTarget(null)}
+        messageId={replyTarget}
+        isHelpMessage={true}
       />
     </>
   );
@@ -385,6 +627,10 @@ export default function AdminPage() {
                 </span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="help" data-ocid="admin.help_tab">
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Help Center
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="inventory">
@@ -516,6 +762,10 @@ export default function AdminPage() {
 
           <TabsContent value="messages">
             <MessagesTab isAdmin={isAdmin === true} />
+          </TabsContent>
+
+          <TabsContent value="help">
+            <HelpMessagesTab />
           </TabsContent>
         </Tabs>
       </motion.div>

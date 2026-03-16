@@ -8,7 +8,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { Download, Shield } from "lucide-react";
+import { Download, Settings, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import SplashScreen from "./components/SplashScreen";
 import { usePwaInstall } from "./hooks/use-pwa-install";
@@ -18,6 +18,7 @@ import AdminPage from "./pages/AdminPage";
 import InventoryListPage from "./pages/InventoryListPage";
 import ItemDetailPage from "./pages/ItemDetailPage";
 import LandingPage from "./pages/LandingPage";
+import SettingsPage from "./pages/SettingsPage";
 
 function NavAdminLink() {
   const { identity } = useInternetIdentity();
@@ -74,6 +75,21 @@ function RootLayout() {
               </Link>
             </Button>
             <NavAdminLink />
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <Link
+                to="/settings"
+                data-ocid="nav.settings_link"
+                title="Settings"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="sr-only">Settings</span>
+              </Link>
+            </Button>
           </nav>
         </div>
       </header>
@@ -83,17 +99,15 @@ function RootLayout() {
       </main>
 
       <footer className="border-t border-border py-6 mt-auto">
-        <div className="container max-w-7xl mx-auto px-4 text-center text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()}. Built with{" "}
-          <span className="text-primary">♥</span> using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary hover:underline"
-          >
-            caffeine.ai
-          </a>
+        <div className="container max-w-7xl mx-auto px-4 text-center">
+          <p className="text-sm font-medium text-foreground tracking-wide">
+            Developed by{" "}
+            <span className="text-primary font-semibold">Ayush Rai</span>
+            <span className="mx-2 text-muted-foreground">|</span>
+            <span className="text-muted-foreground">
+              BBA Student at BBS Group of Institutions
+            </span>
+          </p>
         </div>
       </footer>
 
@@ -130,11 +144,18 @@ const adminRoute = createRoute({
   component: AdminPage,
 });
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/settings",
+  component: SettingsPage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   inventoryRoute,
   itemDetailRoute,
   adminRoute,
+  settingsRoute,
 ]);
 
 const router = createRouter({ routeTree });

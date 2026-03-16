@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { InventoryItem } from "../backend";
+import type { HelpMessage, InventoryItem, UserProfile } from "../backend";
 import { ExternalBlob } from "../backend";
 import { useActor } from "./useActor";
 
@@ -10,7 +10,11 @@ export interface ContactMessage {
   message: string;
   createdAt: bigint;
   isRead: boolean;
+  adminReply?: string;
+  repliedAt?: bigint;
 }
+
+export type { HelpMessage, UserProfile };
 
 export function useAllItems() {
   const { actor, isFetching } = useActor();
@@ -206,6 +210,124 @@ export function useSubmitContactMessage() {
         email,
         message,
       ) as Promise<bigint>;
+    },
+  });
+}
+
+export function useReplyToMessage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      replyText,
+    }: { id: bigint; replyText: string }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.replyToMessage(id, replyText);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+    },
+  });
+}
+
+// ── User Profile ──────────────────────────────────────────────────────────
+
+export function useGetCallerProfile(enabled = true) {
+  const { actor, isFetching } = useActor();
+  return useQuery<UserProfile | null>({
+    queryKey: ["callerProfile"],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getCallerUserProfile();
+    },
+    enabled: enabled && !!actor && !isFetching,
+  });
+}
+
+export function useSaveCallerProfile() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (profile: UserProfile) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.saveCallerUserProfile(profile);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["callerProfile"] });
+    },
+  });
+}
+
+export function useDeleteAccount() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteAccount();
+    },
+  });
+}
+
+// ── Help Messages ─────────────────────────────────────────────────────────
+
+export function useMyHelpMessages(enabled = true) {
+  const { actor, isFetching } = useActor();
+  return useQuery<HelpMessage[]>({
+    queryKey: ["myHelpMessages"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getMyHelpMessages();
+    },
+    enabled: enabled && !!actor && !isFetching,
+    refetchInterval: 10_000,
+  });
+}
+
+export function useAllHelpMessages(enabled = true) {
+  const { actor, isFetching } = useActor();
+  return useQuery<HelpMessage[]>({
+    queryKey: ["allHelpMessages"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllHelpMessages();
+    },
+    enabled: enabled && !!actor && !isFetching,
+  });
+}
+
+export function useSubmitHelpMessage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      name,
+      email,
+      message,
+    }: { name: string; email: string; message: string }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.submitHelpMessage(name, email, message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["myHelpMessages"] });
+    },
+  });
+}
+
+export function useReplyToHelpMessage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      replyText,
+    }: { id: bigint; replyText: string }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.replyToHelpMessage(id, replyText);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allHelpMessages"] });
+      queryClient.invalidateQueries({ queryKey: ["myHelpMessages"] });
     },
   });
 }

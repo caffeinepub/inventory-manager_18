@@ -26,6 +26,17 @@ export const UserRole = IDL.Variant({
 });
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
 export const Time = IDL.Int;
+export const HelpMessage = IDL.Record({
+  'id' : IDL.Nat,
+  'adminReply' : IDL.Opt(IDL.Text),
+  'name' : IDL.Text,
+  'createdAt' : Time,
+  'isRead' : IDL.Bool,
+  'email' : IDL.Text,
+  'senderPrincipal' : IDL.Text,
+  'repliedAt' : IDL.Opt(Time),
+  'message' : IDL.Text,
+});
 export const InventoryItem = IDL.Record({
   'id' : IDL.Nat,
   'sku' : IDL.Text,
@@ -38,6 +49,22 @@ export const InventoryItem = IDL.Record({
   'category' : IDL.Text,
   'imageId' : IDL.Opt(ExternalBlob),
   'price' : IDL.Float64,
+});
+export const ContactMessage = IDL.Record({
+  'id' : IDL.Nat,
+  'adminReply' : IDL.Opt(IDL.Text),
+  'name' : IDL.Text,
+  'createdAt' : Time,
+  'isRead' : IDL.Bool,
+  'email' : IDL.Text,
+  'repliedAt' : IDL.Opt(Time),
+  'message' : IDL.Text,
+});
+export const UserProfile = IDL.Record({
+  'name' : IDL.Text,
+  'email' : IDL.Text,
+  'imageId' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+  'phone' : IDL.Text,
 });
 
 export const idlService = IDL.Service({
@@ -83,11 +110,34 @@ export const idlService = IDL.Service({
       [IDL.Nat],
       [],
     ),
+  'deleteAccount' : IDL.Func([], [], []),
+  'deleteHelpMessage' : IDL.Func([IDL.Nat], [], []),
   'deleteItem' : IDL.Func([IDL.Nat], [], []),
+  'deleteMessage' : IDL.Func([IDL.Nat], [], []),
+  'getAllHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
   'getAllItems' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
+  'getAllMessages' : IDL.Func([], [IDL.Vec(ContactMessage)], ['query']),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getItem' : IDL.Func([IDL.Nat], [InventoryItem], ['query']),
+  'getMyHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
+  'getUnreadMessageCount' : IDL.Func([], [IDL.Nat], ['query']),
+  'getUserProfile' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'markMessageRead' : IDL.Func([IDL.Nat], [], []),
+  'replyToHelpMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+  'replyToMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'submitContactMessage' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
+  'submitHelpMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Nat], []),
   'updateItem' : IDL.Func(
       [
         IDL.Nat,
@@ -100,6 +150,11 @@ export const idlService = IDL.Service({
         IDL.Nat,
         IDL.Opt(ExternalBlob),
       ],
+      [],
+      [],
+    ),
+  'updateUserProfile' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Vec(IDL.Nat8))],
       [],
       [],
     ),
@@ -126,6 +181,17 @@ export const idlFactory = ({ IDL }) => {
   });
   const ExternalBlob = IDL.Vec(IDL.Nat8);
   const Time = IDL.Int;
+  const HelpMessage = IDL.Record({
+    'id' : IDL.Nat,
+    'adminReply' : IDL.Opt(IDL.Text),
+    'name' : IDL.Text,
+    'createdAt' : Time,
+    'isRead' : IDL.Bool,
+    'email' : IDL.Text,
+    'senderPrincipal' : IDL.Text,
+    'repliedAt' : IDL.Opt(Time),
+    'message' : IDL.Text,
+  });
   const InventoryItem = IDL.Record({
     'id' : IDL.Nat,
     'sku' : IDL.Text,
@@ -138,6 +204,22 @@ export const idlFactory = ({ IDL }) => {
     'category' : IDL.Text,
     'imageId' : IDL.Opt(ExternalBlob),
     'price' : IDL.Float64,
+  });
+  const ContactMessage = IDL.Record({
+    'id' : IDL.Nat,
+    'adminReply' : IDL.Opt(IDL.Text),
+    'name' : IDL.Text,
+    'createdAt' : Time,
+    'isRead' : IDL.Bool,
+    'email' : IDL.Text,
+    'repliedAt' : IDL.Opt(Time),
+    'message' : IDL.Text,
+  });
+  const UserProfile = IDL.Record({
+    'name' : IDL.Text,
+    'email' : IDL.Text,
+    'imageId' : IDL.Opt(IDL.Vec(IDL.Nat8)),
+    'phone' : IDL.Text,
   });
   
   return IDL.Service({
@@ -183,11 +265,38 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Nat],
         [],
       ),
+    'deleteAccount' : IDL.Func([], [], []),
+    'deleteHelpMessage' : IDL.Func([IDL.Nat], [], []),
     'deleteItem' : IDL.Func([IDL.Nat], [], []),
+    'deleteMessage' : IDL.Func([IDL.Nat], [], []),
+    'getAllHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
     'getAllItems' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
+    'getAllMessages' : IDL.Func([], [IDL.Vec(ContactMessage)], ['query']),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getItem' : IDL.Func([IDL.Nat], [InventoryItem], ['query']),
+    'getMyHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
+    'getUnreadMessageCount' : IDL.Func([], [IDL.Nat], ['query']),
+    'getUserProfile' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'markMessageRead' : IDL.Func([IDL.Nat], [], []),
+    'replyToHelpMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+    'replyToMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'submitContactMessage' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
+    'submitHelpMessage' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
     'updateItem' : IDL.Func(
         [
           IDL.Nat,
@@ -200,6 +309,11 @@ export const idlFactory = ({ IDL }) => {
           IDL.Nat,
           IDL.Opt(ExternalBlob),
         ],
+        [],
+        [],
+      ),
+    'updateUserProfile' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Vec(IDL.Nat8))],
         [],
         [],
       ),

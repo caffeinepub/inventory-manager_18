@@ -7,15 +7,25 @@ import {
   AlertCircle,
   ChevronRight,
   Download,
+  Mic,
   Package,
   Search,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { InventoryItem } from "../backend";
 import { useAllItems } from "../hooks/useQueries";
 
 const SKELETON_KEYS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+
+// Check Speech Recognition support once at module level
+const SpeechRecognitionAPI =
+  typeof window !== "undefined"
+    ? (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition
+    : null;
+
+const isSpeechSupported = !!SpeechRecognitionAPI;
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -130,6 +140,52 @@ function SkeletonCard() {
 export default function InventoryListPage() {
   const { data: items, isLoading, isError } = useAllItems();
   const [search, setSearch] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+    };
+  }, []);
+
+  const toggleVoiceSearch = () => {
+    if (!isSpeechSupported) return;
+
+    if (isListening) {
+      recognitionRef.current?.abort();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "en-US";
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event: any) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setSearch(transcript);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  };
 
   const filtered = useMemo(() => {
     if (!items) return [];
@@ -171,14 +227,31 @@ export default function InventoryListPage() {
 
         {/* Search */}
         <div className="relative mt-4 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search items..."
-            className="pl-9 bg-card border-border"
+            className={`pl-9 bg-card border-border${isSpeechSupported ? " pr-9" : ""}`}
             data-ocid="inventory.search_input"
           />
+          {isSpeechSupported && (
+            <button
+              type="button"
+              onClick={toggleVoiceSearch}
+              aria-label={
+                isListening ? "Stop voice search" : "Start voice search"
+              }
+              className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                isListening
+                  ? "text-red-500 animate-pulse"
+                  : "text-muted-foreground hover:text-primary"
+              }`}
+              data-ocid="inventory.voice_search_button"
+            >
+              <Mic className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

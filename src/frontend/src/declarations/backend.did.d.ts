@@ -10,7 +10,28 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface ContactMessage {
+  'id' : bigint,
+  'adminReply' : [] | [string],
+  'name' : string,
+  'createdAt' : Time,
+  'isRead' : boolean,
+  'email' : string,
+  'repliedAt' : [] | [Time],
+  'message' : string,
+}
 export type ExternalBlob = Uint8Array;
+export interface HelpMessage {
+  'id' : bigint,
+  'adminReply' : [] | [string],
+  'name' : string,
+  'createdAt' : Time,
+  'isRead' : boolean,
+  'email' : string,
+  'senderPrincipal' : string,
+  'repliedAt' : [] | [Time],
+  'message' : string,
+}
 export interface InventoryItem {
   'id' : bigint,
   'sku' : string,
@@ -25,6 +46,12 @@ export interface InventoryItem {
   'price' : number,
 }
 export type Time = bigint;
+export interface UserProfile {
+  'name' : string,
+  'email' : string,
+  'imageId' : [] | [Uint8Array],
+  'phone' : string,
+}
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
@@ -70,11 +97,26 @@ export interface _SERVICE {
     ],
     bigint
   >,
+  'deleteAccount' : ActorMethod<[], undefined>,
+  'deleteHelpMessage' : ActorMethod<[bigint], undefined>,
   'deleteItem' : ActorMethod<[bigint], undefined>,
+  'deleteMessage' : ActorMethod<[bigint], undefined>,
+  'getAllHelpMessages' : ActorMethod<[], Array<HelpMessage>>,
   'getAllItems' : ActorMethod<[], Array<InventoryItem>>,
+  'getAllMessages' : ActorMethod<[], Array<ContactMessage>>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getItem' : ActorMethod<[bigint], InventoryItem>,
+  'getMyHelpMessages' : ActorMethod<[], Array<HelpMessage>>,
+  'getUnreadMessageCount' : ActorMethod<[], bigint>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'markMessageRead' : ActorMethod<[bigint], undefined>,
+  'replyToHelpMessage' : ActorMethod<[bigint, string], undefined>,
+  'replyToMessage' : ActorMethod<[bigint, string], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'submitContactMessage' : ActorMethod<[string, string, string], bigint>,
+  'submitHelpMessage' : ActorMethod<[string, string, string], bigint>,
   'updateItem' : ActorMethod<
     [
       bigint,
@@ -87,6 +129,10 @@ export interface _SERVICE {
       bigint,
       [] | [ExternalBlob],
     ],
+    undefined
+  >,
+  'updateUserProfile' : ActorMethod<
+    [string, string, string, [] | [Uint8Array]],
     undefined
   >,
 }
