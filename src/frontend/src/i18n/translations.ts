@@ -11,7 +11,7 @@ export const translations = {
     footer: {
       developed_by: "Developed by",
       developer_name: "Ayush Rai",
-      affiliation: "BBA Student at BBS Group of Institutions",
+      trust_badge: "🛡️ 100% Secure & Verified Application",
     },
     landing: {
       hero_title_1: "Your Inventory,",
@@ -35,7 +35,7 @@ export const translations = {
       feature_goto_inventory: "Browse Inventory →",
       about_eyebrow: "About the Developer",
       about_name: "Ayush Rai",
-      about_subtitle: "BBA Student — BBS Group of Institutions",
+      about_subtitle: "Founder, StockVault",
       about_interest1: "Data Analysis",
       about_interest2: "Cyber Security",
       about_interest3: "Photography",
@@ -235,7 +235,7 @@ export const translations = {
     footer: {
       developed_by: "द्वारा विकसित",
       developer_name: "आयुष राय",
-      affiliation: "BBS ग्रुप ऑफ इंस्टीट्यूशंस में BBA छात्र",
+      trust_badge: "🛡️ 100% सुरक्षित और सत्यापित एप्लिकेशन",
     },
     landing: {
       hero_title_1: "आपकी इन्वेंटरी,",
@@ -259,7 +259,7 @@ export const translations = {
       feature_goto_inventory: "इन्वेंटरी देखें →",
       about_eyebrow: "डेवलपर के बारे में",
       about_name: "आयुष राय",
-      about_subtitle: "BBA छात्र — BBS ग्रुप ऑफ इंस्टीट्यूशंस",
+      about_subtitle: "फाउंडर, StockVault",
       about_interest1: "डेटा विश्लेषण",
       about_interest2: "साइबर सुरक्षा",
       about_interest3: "फ़ोटोग्राफ़ी",

@@ -8,7 +8,7 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { Download, Settings, Shield } from "lucide-react";
+import { Award, Download, Settings, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import SplashScreen from "./components/SplashScreen";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
@@ -16,6 +16,7 @@ import { usePwaInstall } from "./hooks/use-pwa-install";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useUnreadMessageCount } from "./hooks/useQueries";
 import AdminPage from "./pages/AdminPage";
+import CertificatePage from "./pages/CertificatePage";
 import InventoryListPage from "./pages/InventoryListPage";
 import ItemDetailPage from "./pages/ItemDetailPage";
 import LandingPage from "./pages/LandingPage";
@@ -108,11 +109,24 @@ function RootLayout() {
             <span className="text-primary font-semibold">
               {t("footer.developer_name")}
             </span>
-            <span className="mx-2 text-muted-foreground">|</span>
-            <span className="text-muted-foreground">
-              {t("footer.affiliation")}
-            </span>
           </p>
+          <p className="text-xs text-muted-foreground mt-1 font-medium">
+            {t("footer.trust_badge")}
+          </p>
+          <div className="mt-3">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              data-ocid="footer.certificate_button"
+              className="border-yellow-500/50 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-500 hover:text-yellow-800 gap-1.5 text-xs"
+            >
+              <Link to="/certificate">
+                <Award className="w-3.5 h-3.5" />
+                View Certificate
+              </Link>
+            </Button>
+          </div>
         </div>
       </footer>
 
@@ -155,12 +169,19 @@ const settingsRoute = createRoute({
   component: SettingsPage,
 });
 
+const certificateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/certificate",
+  component: CertificatePage,
+});
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   inventoryRoute,
   itemDetailRoute,
   adminRoute,
   settingsRoute,
+  certificateRoute,
 ]);
 
 const router = createRouter({ routeTree });
