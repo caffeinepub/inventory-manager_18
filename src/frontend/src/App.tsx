@@ -11,6 +11,7 @@ import {
 import { Download, Settings, Shield } from "lucide-react";
 import { useEffect, useState } from "react";
 import SplashScreen from "./components/SplashScreen";
+import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { usePwaInstall } from "./hooks/use-pwa-install";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useUnreadMessageCount } from "./hooks/useQueries";
@@ -22,6 +23,7 @@ import SettingsPage from "./pages/SettingsPage";
 
 function NavAdminLink() {
   const { identity } = useInternetIdentity();
+  const { t } = useLanguage();
   const isAuthenticated = !!identity;
   const { data: unreadCount } = useUnreadMessageCount(isAuthenticated);
 
@@ -29,7 +31,7 @@ function NavAdminLink() {
     <Button variant="ghost" size="sm" asChild>
       <Link to="/admin" data-ocid="nav.admin_link" className="relative">
         <Shield className="w-3.5 h-3.5 mr-1.5" />
-        Admin
+        {t("nav.admin")}
         {isAuthenticated && unreadCount != null && unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
         )}
@@ -40,6 +42,7 @@ function NavAdminLink() {
 
 function RootLayout() {
   const { isInstallable, promptInstall } = usePwaInstall();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -66,12 +69,12 @@ function RootLayout() {
                 className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
               >
                 <Download className="w-3.5 h-3.5 mr-1.5" />
-                Download App
+                {t("nav.download_app")}
               </Button>
             )}
             <Button variant="ghost" size="sm" asChild>
               <Link to="/inventory" data-ocid="nav.inventory_link">
-                Browse
+                {t("nav.browse")}
               </Link>
             </Button>
             <NavAdminLink />
@@ -84,10 +87,10 @@ function RootLayout() {
               <Link
                 to="/settings"
                 data-ocid="nav.settings_link"
-                title="Settings"
+                title={t("nav.settings")}
               >
                 <Settings className="w-4 h-4" />
-                <span className="sr-only">Settings</span>
+                <span className="sr-only">{t("nav.settings")}</span>
               </Link>
             </Button>
           </nav>
@@ -101,11 +104,13 @@ function RootLayout() {
       <footer className="border-t border-border py-6 mt-auto">
         <div className="container max-w-7xl mx-auto px-4 text-center">
           <p className="text-sm font-medium text-foreground tracking-wide">
-            Developed by{" "}
-            <span className="text-primary font-semibold">Ayush Rai</span>
+            {t("footer.developed_by")}{" "}
+            <span className="text-primary font-semibold">
+              {t("footer.developer_name")}
+            </span>
             <span className="mx-2 text-muted-foreground">|</span>
             <span className="text-muted-foreground">
-              BBA Student at BBS Group of Institutions
+              {t("footer.affiliation")}
             </span>
           </p>
         </div>
@@ -186,9 +191,9 @@ export default function App() {
   }, []);
 
   return (
-    <>
+    <LanguageProvider>
       {showSplash && <SplashScreen fading={fadingOut} />}
       <RouterProvider router={router} />
-    </>
+    </LanguageProvider>
   );
 }

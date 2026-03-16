@@ -14,11 +14,11 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { InventoryItem } from "../backend";
+import { useLanguage } from "../context/LanguageContext";
 import { useAllItems } from "../hooks/useQueries";
 
 const SKELETON_KEYS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
 
-// Check Speech Recognition support once at module level
 const SpeechRecognitionAPI =
   typeof window !== "undefined"
     ? (window as any).SpeechRecognition ||
@@ -65,6 +65,7 @@ function exportCSV(items: InventoryItem[]) {
 
 function ItemCard({ item, index }: { item: InventoryItem; index: number }) {
   const imageUrl = item.imageId ? item.imageId.getDirectURL() : null;
+  const { t } = useLanguage();
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -112,7 +113,7 @@ function ItemCard({ item, index }: { item: InventoryItem; index: number }) {
               {formatCurrency(item.price)}
             </span>
             <span className="text-xs text-muted-foreground font-mono">
-              {item.stockQuantity.toString()} units
+              {item.stockQuantity.toString()} {t("inventory.units")}
             </span>
           </div>
         </div>
@@ -139,11 +140,11 @@ function SkeletonCard() {
 
 export default function InventoryListPage() {
   const { data: items, isLoading, isError } = useAllItems();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
@@ -206,10 +207,12 @@ export default function InventoryListPage() {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="font-display font-700 text-3xl text-foreground tracking-tight">
-              Inventory
+              {t("inventory.title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {items ? `${items.length} items in stock` : "Loading..."}
+              {items
+                ? `${items.length} ${t("inventory.items_in_stock")}`
+                : t("inventory.loading")}
             </p>
           </div>
           <Button
@@ -221,7 +224,7 @@ export default function InventoryListPage() {
             data-ocid="inventory.export_csv_button"
           >
             <Download className="w-3.5 h-3.5 mr-2" />
-            Export CSV
+            {t("inventory.export_csv")}
           </Button>
         </div>
 
@@ -231,7 +234,7 @@ export default function InventoryListPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search items..."
+            placeholder={t("inventory.search_placeholder")}
             className={`pl-9 bg-card border-border${isSpeechSupported ? " pr-9" : ""}`}
             data-ocid="inventory.search_input"
           />
@@ -240,7 +243,9 @@ export default function InventoryListPage() {
               type="button"
               onClick={toggleVoiceSearch}
               aria-label={
-                isListening ? "Stop voice search" : "Start voice search"
+                isListening
+                  ? t("inventory.stop_voice")
+                  : t("inventory.start_voice")
               }
               className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 isListening
@@ -262,7 +267,7 @@ export default function InventoryListPage() {
           data-ocid="inventory.error_state"
         >
           <AlertCircle className="w-8 h-8 mb-3 text-destructive" />
-          <p>Failed to load inventory. Please try again.</p>
+          <p>{t("inventory.failed_to_load")}</p>
         </div>
       )}
 
@@ -286,12 +291,14 @@ export default function InventoryListPage() {
             <Package className="w-7 h-7 text-muted-foreground" />
           </div>
           <h3 className="font-display font-600 text-base text-foreground mb-1">
-            {search ? "No items match your search" : "No items yet"}
+            {search
+              ? t("inventory.no_items_match")
+              : t("inventory.no_items_yet")}
           </h3>
           <p className="text-sm text-muted-foreground max-w-xs">
             {search
-              ? "Try a different search term"
-              : "Add items from the admin panel to see them here"}
+              ? t("inventory.try_different_search")
+              : t("inventory.add_from_admin")}
           </p>
         </div>
       )}

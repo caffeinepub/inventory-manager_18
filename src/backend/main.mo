@@ -8,10 +8,10 @@ import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
-import Migration "migration";
+
 
 // Specify the data migration function in the with clause to handle compatibility changes
-(with migration = Migration.run)
+
 actor {
   type InventoryItem = {
     id : Nat;

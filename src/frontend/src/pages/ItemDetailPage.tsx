@@ -14,6 +14,7 @@ import {
   Truck,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useLanguage } from "../context/LanguageContext";
 import { useItem } from "../hooks/useQueries";
 
 function formatCurrency(value: number) {
@@ -53,6 +54,7 @@ function DetailRow({
 
 export default function ItemDetailPage() {
   const { id } = useParams({ from: "/item/$id" });
+  const { t } = useLanguage();
   const itemId = BigInt(id);
   const { data: item, isLoading, isError } = useItem(itemId);
 
@@ -81,13 +83,13 @@ export default function ItemDetailPage() {
         <Button variant="ghost" size="sm" asChild className="mb-6">
           <Link to="/" data-ocid="item_detail.back_button">
             <ArrowLeft className="w-3.5 h-3.5 mr-2" />
-            Back
+            {t("item_detail.back")}
           </Link>
         </Button>
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <AlertCircle className="w-10 h-10 text-destructive mb-3" />
           <p className="text-muted-foreground">
-            Item not found or failed to load.
+            {t("item_detail.item_not_found")}
           </p>
         </div>
       </div>
@@ -106,7 +108,7 @@ export default function ItemDetailPage() {
         <Button variant="ghost" size="sm" asChild className="mb-6 -ml-2">
           <Link to="/" data-ocid="item_detail.back_button">
             <ArrowLeft className="w-3.5 h-3.5 mr-2" />
-            Back to Inventory
+            {t("item_detail.back_to_inventory")}
           </Link>
         </Button>
 
@@ -151,23 +153,36 @@ export default function ItemDetailPage() {
 
             <Separator className="bg-border mb-2" />
 
-            <DetailRow icon={Hash} label="SKU" value={item.sku} mono />
+            <DetailRow
+              icon={Hash}
+              label={t("item_detail.sku")}
+              value={item.sku}
+              mono
+            />
             <Separator className="bg-border" />
-            <DetailRow icon={Tag} label="Category" value={item.category} />
+            <DetailRow
+              icon={Tag}
+              label={t("item_detail.category")}
+              value={item.category}
+            />
             <Separator className="bg-border" />
             <DetailRow
               icon={DollarSign}
-              label="Price"
+              label={t("item_detail.price")}
               value={formatCurrency(item.price)}
               mono
             />
             <Separator className="bg-border" />
-            <DetailRow icon={Truck} label="Supplier" value={item.supplier} />
+            <DetailRow
+              icon={Truck}
+              label={t("item_detail.supplier")}
+              value={item.supplier}
+            />
             <Separator className="bg-border" />
             <DetailRow
               icon={Archive}
-              label="Stock Quantity"
-              value={`${item.stockQuantity.toString()} units`}
+              label={t("item_detail.stock_quantity")}
+              value={`${item.stockQuantity.toString()} ${t("item_detail.units")}`}
               mono
             />
           </div>

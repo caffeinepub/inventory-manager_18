@@ -4,35 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { Download, ExternalLink, Mail, Search, Shield } from "lucide-react";
 import type { Variants } from "motion/react";
 import { motion } from "motion/react";
-
-const features = [
-  {
-    icon: Search,
-    title: "Smart Search",
-    description:
-      "Instantly find any item by name, category, or SKU. Real-time filtering keeps your workflow fast.",
-    href: "/inventory" as const,
-    ocid: "landing.features.card.1",
-  },
-  {
-    icon: Download,
-    title: "CSV Export",
-    description:
-      "Download your complete inventory in one click. Share reports, back up data, or import elsewhere.",
-    href: "/inventory" as const,
-    ocid: "landing.features.card.2",
-  },
-  {
-    icon: Shield,
-    title: "Admin Panel",
-    description:
-      "Secure, login-protected CRUD management. Add, edit, and remove items with confidence.",
-    href: "/admin" as const,
-    ocid: "landing.features.card.3",
-  },
-];
-
-const interests = ["Data Analysis", "Cyber Security", "Photography"];
+import { useLanguage } from "../context/LanguageContext";
 
 const containerVariants: Variants = {
   hidden: {},
@@ -51,6 +23,7 @@ const fadeUp: Variants = {
 };
 
 function ContactSection() {
+  const { t } = useLanguage();
   return (
     <section
       className="py-20 px-4 bg-card/40 border-t border-border"
@@ -65,10 +38,10 @@ function ContactSection() {
         >
           <div className="text-center mb-10">
             <p className="text-xs font-mono text-primary uppercase tracking-widest mb-2">
-              Get in touch
+              {t("landing.contact_eyebrow")}
             </p>
             <h2 className="font-display font-700 text-3xl sm:text-4xl text-foreground">
-              Contact Me
+              {t("landing.contact_title")}
             </h2>
           </div>
 
@@ -78,7 +51,7 @@ function ContactSection() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground mb-1">
-                Reach out directly at
+                {t("landing.contact_reach_out")}
               </p>
               <a
                 href="mailto:raiayush212280@gmail.com"
@@ -97,7 +70,7 @@ function ContactSection() {
               >
                 <a href="mailto:raiayush212280@gmail.com">
                   <Mail className="w-4 h-4 mr-2" />
-                  Send Email
+                  {t("landing.contact_send_email")}
                 </a>
               </Button>
               <Button
@@ -113,7 +86,7 @@ function ContactSection() {
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
-                  LinkedIn Profile
+                  {t("landing.contact_linkedin")}
                 </a>
               </Button>
             </div>
@@ -125,6 +98,38 @@ function ContactSection() {
 }
 
 export default function LandingPage() {
+  const { t } = useLanguage();
+
+  const features = [
+    {
+      icon: Search,
+      title: t("landing.feature1_title"),
+      description: t("landing.feature1_desc"),
+      href: "/inventory" as const,
+      ocid: "landing.features.card.1",
+    },
+    {
+      icon: Download,
+      title: t("landing.feature2_title"),
+      description: t("landing.feature2_desc"),
+      href: "/inventory" as const,
+      ocid: "landing.features.card.2",
+    },
+    {
+      icon: Shield,
+      title: t("landing.feature3_title"),
+      description: t("landing.feature3_desc"),
+      href: "/admin" as const,
+      ocid: "landing.features.card.3",
+    },
+  ];
+
+  const interests = [
+    t("landing.about_interest1"),
+    t("landing.about_interest2"),
+    t("landing.about_interest3"),
+  ];
+
   return (
     <div className="flex flex-col">
       {/* ── Hero ─────────────────────────────────────────────── */}
@@ -150,16 +155,15 @@ export default function LandingPage() {
             variants={fadeUp}
             className="font-display font-700 text-4xl sm:text-5xl lg:text-6xl text-foreground tracking-tight leading-tight"
           >
-            Your Inventory, <span className="text-primary">Under Control</span>
+            {t("landing.hero_title_1")}{" "}
+            <span className="text-primary">{t("landing.hero_title_2")}</span>
           </motion.h1>
 
           <motion.p
             variants={fadeUp}
             className="text-base sm:text-lg text-muted-foreground max-w-xl leading-relaxed"
           >
-            StockVault gives you a clean, fast interface to track every item you
-            own &mdash; search in real time, export to CSV, and manage
-            everything securely from one place.
+            {t("landing.hero_description")}
           </motion.p>
 
           <motion.div
@@ -172,7 +176,7 @@ export default function LandingPage() {
               className="font-600 px-8 cursor-pointer hover:opacity-90 active:scale-95 transition-all duration-200"
               data-ocid="landing.hero_button"
             >
-              <Link to="/inventory">Browse Inventory</Link>
+              <Link to="/inventory">{t("landing.hero_cta")}</Link>
             </Button>
             <Button
               asChild
@@ -183,7 +187,7 @@ export default function LandingPage() {
             >
               <Link to="/admin">
                 <Shield className="w-4 h-4 mr-2" />
-                Admin Login
+                {t("landing.hero_admin")}
               </Link>
             </Button>
           </motion.div>
@@ -204,10 +208,10 @@ export default function LandingPage() {
             transition={{ duration: 0.45 }}
           >
             <p className="text-xs font-mono text-primary uppercase tracking-widest mb-2">
-              What you get
+              {t("landing.features_eyebrow")}
             </p>
             <h2 className="font-display font-700 text-3xl sm:text-4xl text-foreground">
-              Everything you need
+              {t("landing.features_title")}
             </h2>
           </motion.div>
 
@@ -237,7 +241,9 @@ export default function LandingPage() {
                     </p>
                   </div>
                   <span className="mt-auto text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    {href === "/admin" ? "Go to Admin →" : "Browse Inventory →"}
+                    {href === "/admin"
+                      ? t("landing.feature_goto_admin")
+                      : t("landing.feature_goto_inventory")}
                   </span>
                 </motion.div>
               </Link>
@@ -261,13 +267,13 @@ export default function LandingPage() {
             </div>
             <div className="flex-1">
               <p className="text-xs font-mono text-primary uppercase tracking-widest mb-2">
-                About the Developer
+                {t("landing.about_eyebrow")}
               </p>
               <h2 className="font-display font-700 text-2xl text-foreground mb-1">
-                Ayush Rai
+                {t("landing.about_name")}
               </h2>
               <p className="text-sm text-muted-foreground mb-4">
-                BBA Student &mdash; BBS Group of Institutions
+                {t("landing.about_subtitle")}
               </p>
               <div className="flex flex-wrap gap-2 mb-6">
                 {interests.map((interest) => (
@@ -293,7 +299,7 @@ export default function LandingPage() {
                   rel="noopener noreferrer"
                 >
                   <ExternalLink className="w-3.5 h-3.5 mr-2" />
-                  LinkedIn Profile
+                  {t("landing.about_linkedin")}
                 </a>
               </Button>
             </div>

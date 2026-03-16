@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import type { InventoryItem } from "../backend";
 import DeleteConfirmDialog from "../components/DeleteConfirmDialog";
 import ItemForm from "../components/ItemForm";
+import { useLanguage } from "../context/LanguageContext";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useAllHelpMessages,
@@ -91,6 +92,7 @@ function ReplyDialog({
   messageId,
   isHelpMessage = false,
 }: ReplyDialogProps) {
+  const { t } = useLanguage();
   const [replyText, setReplyText] = useState("");
   const replyToMessage = useReplyToMessage();
   const replyToHelp = useReplyToHelpMessage();
@@ -99,7 +101,7 @@ function ReplyDialog({
 
   const handleSubmit = async () => {
     if (!messageId || !replyText.trim()) {
-      toast.error("Please enter a reply.");
+      toast.error(t("admin.reply_empty_error"));
       return;
     }
     try {
@@ -108,11 +110,11 @@ function ReplyDialog({
       } else {
         await replyToMessage.mutateAsync({ id: messageId, replyText });
       }
-      toast.success("Reply sent!");
+      toast.success(t("admin.reply_success"));
       setReplyText("");
       onOpenChange(false);
     } catch {
-      toast.error("Failed to send reply.");
+      toast.error(t("admin.reply_error"));
     }
   };
 
@@ -120,12 +122,12 @@ function ReplyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-ocid="admin.reply_dialog">
         <DialogHeader>
-          <DialogTitle>Reply to Message</DialogTitle>
+          <DialogTitle>{t("admin.reply_dialog_title")}</DialogTitle>
         </DialogHeader>
         <Textarea
           value={replyText}
           onChange={(e) => setReplyText(e.target.value)}
-          placeholder="Type your reply..."
+          placeholder={t("admin.reply_placeholder")}
           className="min-h-[100px] resize-none"
           data-ocid="admin.messages.reply_input"
         />
@@ -135,7 +137,7 @@ function ReplyDialog({
             onClick={() => onOpenChange(false)}
             data-ocid="admin.reply_cancel_button"
           >
-            Cancel
+            {t("admin.reply_cancel")}
           </Button>
           <Button
             onClick={handleSubmit}
@@ -148,7 +150,7 @@ function ReplyDialog({
             ) : (
               <Reply className="w-4 h-4 mr-2" />
             )}
-            Send Reply
+            {t("admin.reply_send")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -161,6 +163,7 @@ interface MessagesTabProps {
 }
 
 function MessagesTab({ isAdmin }: MessagesTabProps) {
+  const { t } = useLanguage();
   const { data: messages, isLoading } = useAllMessages();
   const deleteMessage = useDeleteMessage();
   const markRead = useMarkMessageRead();
@@ -169,7 +172,6 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
   );
   const [replyTarget, setReplyTarget] = useState<bigint | null>(null);
 
-  // Mark all unread as read when tab mounts or messages change
   useEffect(() => {
     if (!isAdmin || !messages) return;
     const unread = messages.filter((m) => !m.isRead);
@@ -182,10 +184,10 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
     if (!deleteTarget) return;
     try {
       await deleteMessage.mutateAsync(deleteTarget.id);
-      toast.success("Message deleted");
+      toast.success(t("admin.delete_msg_success"));
       setDeleteTarget(undefined);
     } catch {
-      toast.error("Failed to delete message.");
+      toast.error(t("admin.delete_msg_error"));
     }
   };
 
@@ -206,7 +208,9 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
         data-ocid="admin.messages.empty_state"
       >
         <Inbox className="w-10 h-10 text-muted-foreground/30 mb-3" />
-        <p className="text-sm text-muted-foreground">No messages yet.</p>
+        <p className="text-sm text-muted-foreground">
+          {t("admin.no_messages")}
+        </p>
       </div>
     );
   }
@@ -218,19 +222,19 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                Name
+                {t("admin.col_name")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden sm:table-cell">
-                Email
+                {t("admin.col_email")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                Message
+                {t("admin.col_message")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden md:table-cell">
-                Date/Time
+                {t("admin.col_date")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
-                Actions
+                {t("admin.col_actions")}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -269,7 +273,7 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
                     {msg.adminReply && (
                       <div className="mt-1.5 px-2 py-1.5 rounded bg-green-50 border border-green-200 max-w-xs">
                         <p className="text-xs font-semibold text-green-700 mb-0.5">
-                          Reply:
+                          {t("admin.reply_label")}
                         </p>
                         <p className="text-xs text-green-800">
                           {msg.adminReply}
@@ -329,9 +333,8 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
   );
 }
 
-// ── Help Messages Tab ─────────────────────────────────────────────────────
-
 function HelpMessagesTab() {
+  const { t } = useLanguage();
   const { data: messages, isLoading } = useAllHelpMessages(true);
   const [replyTarget, setReplyTarget] = useState<bigint | null>(null);
 
@@ -352,7 +355,9 @@ function HelpMessagesTab() {
         data-ocid="admin.help.empty_state"
       >
         <MessageSquare className="w-10 h-10 text-muted-foreground/30 mb-3" />
-        <p className="text-sm text-muted-foreground">No help messages yet.</p>
+        <p className="text-sm text-muted-foreground">
+          {t("admin.no_help_messages")}
+        </p>
       </div>
     );
   }
@@ -364,16 +369,16 @@ function HelpMessagesTab() {
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                From
+                {t("admin.col_from")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                Message
+                {t("admin.col_message")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden md:table-cell">
-                Date
+                {t("admin.col_date")}
               </TableHead>
               <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
-                Reply
+                {t("admin.col_reply")}
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -405,7 +410,7 @@ function HelpMessagesTab() {
                     {msg.adminReply && (
                       <div className="mt-1.5 px-2 py-1.5 rounded bg-green-50 border border-green-200 max-w-xs">
                         <p className="text-xs font-semibold text-green-700 mb-0.5">
-                          Your reply:
+                          {t("admin.your_reply_label")}
                         </p>
                         <p className="text-xs text-green-800">
                           {msg.adminReply}
@@ -449,6 +454,7 @@ function HelpMessagesTab() {
 export default function AdminPage() {
   const { identity, login, isLoggingIn, isInitializing } =
     useInternetIdentity();
+  const { t } = useLanguage();
   const isAuthenticated = !!identity;
 
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
@@ -484,15 +490,15 @@ export default function AdminPage() {
     try {
       if (editItem) {
         await updateItem.mutateAsync({ id: editItem.id, data });
-        toast.success("Item updated successfully");
+        toast.success(t("admin.item_updated"));
       } else {
         await createItem.mutateAsync(data);
-        toast.success("Item created successfully");
+        toast.success(t("admin.item_created"));
       }
       setFormOpen(false);
       setEditItem(undefined);
     } catch {
-      toast.error("Failed to save item. Please try again.");
+      toast.error(t("admin.item_save_error"));
     }
   };
 
@@ -500,14 +506,13 @@ export default function AdminPage() {
     if (!deleteTarget) return;
     try {
       await deleteItem.mutateAsync(deleteTarget.id);
-      toast.success("Item deleted");
+      toast.success(t("admin.item_deleted"));
       setDeleteTarget(undefined);
     } catch {
-      toast.error("Failed to delete item.");
+      toast.error(t("admin.item_delete_error"));
     }
   };
 
-  // Not logged in
   if (!isAuthenticated && !isInitializing) {
     return (
       <div className="container max-w-7xl mx-auto px-4 py-20">
@@ -516,10 +521,10 @@ export default function AdminPage() {
             <LogIn className="w-6 h-6 text-muted-foreground" />
           </div>
           <h2 className="font-display font-700 text-xl text-foreground mb-2">
-            Admin Access Required
+            {t("admin.admin_access_required")}
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
-            Sign in to manage your inventory.
+            {t("admin.sign_in_to_manage")}
           </p>
           <Button
             onClick={login}
@@ -532,14 +537,13 @@ export default function AdminPage() {
             ) : (
               <LogIn className="w-4 h-4 mr-2" />
             )}
-            Sign In
+            {isLoggingIn ? t("admin.signing_in") : t("admin.sign_in")}
           </Button>
         </div>
       </div>
     );
   }
 
-  // Loading state
   if (isInitializing || adminLoading) {
     return (
       <div
@@ -560,7 +564,6 @@ export default function AdminPage() {
     );
   }
 
-  // Logged in but not admin
   if (isAuthenticated && isAdmin === false) {
     return (
       <div className="container max-w-7xl mx-auto px-4 py-20">
@@ -569,10 +572,10 @@ export default function AdminPage() {
             <ShieldOff className="w-6 h-6 text-destructive" />
           </div>
           <h2 className="font-display font-700 text-xl text-foreground mb-2">
-            Not Authorized
+            {t("admin.not_authorized")}
           </h2>
           <p className="text-sm text-muted-foreground">
-            Your account does not have admin privileges.
+            {t("admin.not_authorized_desc")}
           </p>
         </div>
       </div>
@@ -590,10 +593,12 @@ export default function AdminPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="font-display font-700 text-2xl text-foreground tracking-tight">
-              Admin Panel
+              {t("admin.title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {items ? `${items.length} items total` : "Managing inventory"}
+              {items
+                ? `${items.length} ${t("admin.items_total")}`
+                : t("admin.managing_inventory")}
             </p>
           </div>
           {activeTab === "inventory" && (
@@ -603,7 +608,7 @@ export default function AdminPage() {
               data-ocid="admin.add_item_button"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Add Item
+              {t("admin.add_item")}
             </Button>
           )}
         </div>
@@ -612,7 +617,7 @@ export default function AdminPage() {
           <TabsList className="mb-6">
             <TabsTrigger value="inventory" data-ocid="admin.inventory_tab">
               <Package className="w-4 h-4 mr-2" />
-              Inventory
+              {t("admin.tab_inventory")}
             </TabsTrigger>
             <TabsTrigger
               value="messages"
@@ -620,7 +625,7 @@ export default function AdminPage() {
               className="relative"
             >
               <Inbox className="w-4 h-4 mr-2" />
-              Messages
+              {t("admin.tab_messages")}
               {unreadCount != null && unreadCount > 0 && (
                 <span className="ml-2 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
                   {unreadCount > 99 ? "99+" : unreadCount}
@@ -629,12 +634,11 @@ export default function AdminPage() {
             </TabsTrigger>
             <TabsTrigger value="help" data-ocid="admin.help_tab">
               <MessageSquare className="w-4 h-4 mr-2" />
-              Help Center
+              {t("admin.tab_help")}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="inventory">
-            {/* Inventory Table */}
             {itemsLoading ? (
               <div className="space-y-2">
                 {ROW_SKELETON_KEYS.map((k) => (
@@ -648,7 +652,7 @@ export default function AdminPage() {
               >
                 <Package className="w-10 h-10 text-muted-foreground/30 mb-3" />
                 <p className="text-sm text-muted-foreground">
-                  No items yet. Add your first item.
+                  {t("admin.no_items_yet")}
                 </p>
               </div>
             ) : (
@@ -657,25 +661,25 @@ export default function AdminPage() {
                   <TableHeader>
                     <TableRow className="border-border hover:bg-transparent">
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium w-8">
-                        #
+                        {t("admin.col_num")}
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
-                        Name
+                        {t("admin.col_name")}
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden sm:table-cell">
-                        Category
+                        {t("admin.col_category")}
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden md:table-cell">
-                        SKU
+                        {t("admin.col_sku")}
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
-                        Price
+                        {t("admin.col_price")}
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right hidden sm:table-cell">
-                        Stock
+                        {t("admin.col_stock")}
                       </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
-                        Actions
+                        {t("admin.col_actions")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
@@ -770,7 +774,6 @@ export default function AdminPage() {
         </Tabs>
       </motion.div>
 
-      {/* Item Form Dialog */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <ItemForm
           item={editItem}
@@ -780,7 +783,6 @@ export default function AdminPage() {
         />
       </Dialog>
 
-      {/* Delete Confirm (inventory) */}
       <DeleteConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(undefined)}
