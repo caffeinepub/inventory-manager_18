@@ -3,6 +3,15 @@ import type { InventoryItem } from "../backend";
 import { ExternalBlob } from "../backend";
 import { useActor } from "./useActor";
 
+export interface ContactMessage {
+  id: bigint;
+  name: string;
+  email: string;
+  message: string;
+  createdAt: bigint;
+  isRead: boolean;
+}
+
 export function useAllItems() {
   const { actor, isFetching } = useActor();
   return useQuery<InventoryItem[]>({
@@ -121,6 +130,82 @@ export function useDeleteItem() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["items"] });
+    },
+  });
+}
+
+// ── Messages ──────────────────────────────────────────────────────────────
+
+export function useAllMessages() {
+  const { actor, isFetching } = useActor();
+  return useQuery<ContactMessage[]>({
+    queryKey: ["messages"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return (actor as any).getAllMessages() as Promise<ContactMessage[]>;
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useUnreadMessageCount(enabled = true) {
+  const { actor, isFetching } = useActor();
+  return useQuery<number>({
+    queryKey: ["unreadCount"],
+    queryFn: async () => {
+      if (!actor) return 0;
+      const count = (await (actor as any).getUnreadMessageCount()) as bigint;
+      return Number(count);
+    },
+    enabled: enabled && !!actor && !isFetching,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useDeleteMessage() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not authenticated");
+      return (actor as any).deleteMessage(id) as Promise<void>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["unreadCount"] });
+    },
+  });
+}
+
+export function useMarkMessageRead() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: bigint) => {
+      if (!actor) throw new Error("Not authenticated");
+      return (actor as any).markMessageRead(id) as Promise<void>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      queryClient.invalidateQueries({ queryKey: ["unreadCount"] });
+    },
+  });
+}
+
+export function useSubmitContactMessage() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async ({
+      name,
+      email,
+      message,
+    }: { name: string; email: string; message: string }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return (actor as any).submitContactMessage(
+        name,
+        email,
+        message,
+      ) as Promise<bigint>;
     },
   });
 }

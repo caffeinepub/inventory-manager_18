@@ -8,31 +8,72 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { Package2, Shield } from "lucide-react";
+import { Download, Shield } from "lucide-react";
+import { useEffect, useState } from "react";
+import SplashScreen from "./components/SplashScreen";
+import { usePwaInstall } from "./hooks/use-pwa-install";
+import { useInternetIdentity } from "./hooks/useInternetIdentity";
+import { useUnreadMessageCount } from "./hooks/useQueries";
 import AdminPage from "./pages/AdminPage";
 import InventoryListPage from "./pages/InventoryListPage";
 import ItemDetailPage from "./pages/ItemDetailPage";
+import LandingPage from "./pages/LandingPage";
+
+function NavAdminLink() {
+  const { identity } = useInternetIdentity();
+  const isAuthenticated = !!identity;
+  const { data: unreadCount } = useUnreadMessageCount(isAuthenticated);
+
+  return (
+    <Button variant="ghost" size="sm" asChild>
+      <Link to="/admin" data-ocid="nav.admin_link" className="relative">
+        <Shield className="w-3.5 h-3.5 mr-1.5" />
+        Admin
+        {isAuthenticated && unreadCount != null && unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-red-500" />
+        )}
+      </Link>
+    </Button>
+  );
+}
 
 function RootLayout() {
+  const { isInstallable, promptInstall } = usePwaInstall();
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-7 h-7 rounded bg-primary/20 border border-primary/40 flex items-center justify-center group-hover:bg-primary/30 transition-colors">
-              <Package2 className="w-4 h-4 text-primary" />
-            </div>
-            <span className="font-display font-700 text-base tracking-tight text-foreground">
-              StockVault
-            </span>
+          <Link
+            to="/"
+            className="flex items-center group"
+            data-ocid="nav.logo_link"
+          >
+            <img
+              src="/assets/generated/stockvault-logo-transparent.dim_400x100.png"
+              alt="StockVault"
+              className="h-8 w-auto object-contain"
+            />
           </Link>
           <nav className="flex items-center gap-2">
+            {isInstallable && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={promptInstall}
+                data-ocid="nav.install_button"
+                className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                Download App
+              </Button>
+            )}
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/admin" data-ocid="nav.admin_link">
-                <Shield className="w-3.5 h-3.5 mr-1.5" />
-                Admin
+              <Link to="/inventory" data-ocid="nav.inventory_link">
+                Browse
               </Link>
             </Button>
+            <NavAdminLink />
           </nav>
         </div>
       </header>
@@ -68,6 +109,12 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
+  component: LandingPage,
+});
+
+const inventoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/inventory",
   component: InventoryListPage,
 });
 
@@ -85,6 +132,7 @@ const adminRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  inventoryRoute,
   itemDetailRoute,
   adminRoute,
 ]);
@@ -98,5 +146,28 @@ declare module "@tanstack/react-router" {
 }
 
 export default function App() {
-  return <RouterProvider router={router} />;
+  const [showSplash, setShowSplash] = useState(true);
+  const [fadingOut, setFadingOut] = useState(false);
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => {
+      setFadingOut(true);
+    }, 2000);
+
+    const hideTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2600);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
+
+  return (
+    <>
+      {showSplash && <SplashScreen fading={fadingOut} />}
+      <RouterProvider router={router} />
+    </>
+  );
 }

@@ -21,21 +21,16 @@ module {
     };
   };
 
-  // First principal that provides the correct admin token becomes admin.
-  // If no admin has been assigned yet, existing users with the correct token
-  // are also promoted to admin (handles the case where a user logged in before
-  // providing the token).
+  // First principal that calls this function becomes admin, all other principals become users.
   public func initialize(state : AccessControlState, caller : Principal, adminToken : Text, userProvidedToken : Text) {
     if (caller.isAnonymous()) { return };
-    if (not state.adminAssigned and userProvidedToken == adminToken) {
-      // Promote to admin regardless of prior registration status
-      state.userRoles.add(caller, #admin);
-      state.adminAssigned := true;
-    } else {
-      // Only register as user if not already registered
-      switch (state.userRoles.get(caller)) {
-        case (?_) {};
-        case (null) {
+    switch (state.userRoles.get(caller)) {
+      case (?_) {};
+      case (null) {
+        if (not state.adminAssigned and userProvidedToken == adminToken) {
+          state.userRoles.add(caller, #admin);
+          state.adminAssigned := true;
+        } else {
           state.userRoles.add(caller, #user);
         };
       };

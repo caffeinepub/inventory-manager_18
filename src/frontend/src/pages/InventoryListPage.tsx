@@ -175,7 +175,7 @@ export default function InventoryListPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, category, SKU\u2026"
+            placeholder="Search items..."
             className="pl-9 bg-card border-border"
             data-ocid="inventory.search_input"
           />

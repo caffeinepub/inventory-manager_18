@@ -27,6 +27,14 @@ export interface InventoryItem {
     imageId?: ExternalBlob;
     price: number;
 }
+export interface ContactMessage {
+    id: bigint;
+    name: string;
+    email: string;
+    message: string;
+    createdAt: Time;
+    isRead: boolean;
+}
 export type Time = bigint;
 export enum UserRole {
     admin = "admin",
@@ -42,4 +50,9 @@ export interface backendInterface {
     getItem(id: bigint): Promise<InventoryItem>;
     isCallerAdmin(): Promise<boolean>;
     updateItem(id: bigint, name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null): Promise<void>;
+    submitContactMessage(name: string, email: string, message: string): Promise<bigint>;
+    getAllMessages(): Promise<Array<ContactMessage>>;
+    deleteMessage(id: bigint): Promise<void>;
+    markMessageRead(id: bigint): Promise<void>;
+    getUnreadMessageCount(): Promise<bigint>;
 }
