@@ -1,15 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Link } from "@tanstack/react-router";
 import { Download, ExternalLink, Mail, Search, Shield } from "lucide-react";
 import type { Variants } from "motion/react";
 import { motion } from "motion/react";
-import { useState } from "react";
-import { toast } from "sonner";
-import { useSubmitContactMessage } from "../hooks/useQueries";
 
 const features = [
   {
@@ -57,20 +51,6 @@ const fadeUp: Variants = {
 };
 
 function ContactSection() {
-  const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
-  const submitMessage = useSubmitContactMessage();
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    try {
-      await submitMessage.mutateAsync(form);
-      setSubmitted(true);
-    } catch {
-      toast.error("Failed to send message. Please try again.");
-    }
-  }
-
   return (
     <section
       className="py-20 px-4 bg-card/40 border-t border-border"
@@ -92,24 +72,37 @@ function ContactSection() {
             </h2>
           </div>
 
-          <div className="bg-card border border-border rounded-2xl p-8 sm:p-10 flex flex-col gap-8">
-            {/* Contact Info */}
-            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <Mail className="w-4 h-4 text-primary" />
-                </div>
-                <a
-                  href="mailto:raiayush212280@gmail.com"
-                  className="font-medium text-foreground hover:underline transition-all"
-                  data-ocid="contact.link"
-                >
-                  raiayush212280@gmail.com
-                </a>
-              </div>
+          <div className="bg-card border border-border rounded-2xl p-8 sm:p-10 flex flex-col items-center gap-6 text-center">
+            <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Mail className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">
+                Reach out directly at
+              </p>
+              <a
+                href="mailto:raiayush212280@gmail.com"
+                className="font-medium text-foreground hover:underline transition-all"
+                data-ocid="contact.link"
+              >
+                raiayush212280@gmail.com
+              </a>
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center">
               <Button
                 asChild
-                size="sm"
+                size="lg"
+                className="font-600 px-8"
+                data-ocid="contact.primary_button"
+              >
+                <a href="mailto:raiayush212280@gmail.com">
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Email
+                </a>
+              </Button>
+              <Button
+                asChild
+                size="lg"
                 variant="outline"
                 className="border-border hover:border-primary/50 hover:text-primary"
                 data-ocid="contact.secondary_button"
@@ -119,128 +112,11 @@ function ContactSection() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 mr-2" />
-                  Quick Chat on LinkedIn
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  LinkedIn Profile
                 </a>
               </Button>
             </div>
-
-            <div className="border-t border-border" />
-
-            {/* Form */}
-            {submitted ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.35 }}
-                className="flex flex-col items-center gap-3 py-8 text-center"
-                data-ocid="contact.success_state"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary/15 border-2 border-primary/30 flex items-center justify-center">
-                  <Mail className="w-5 h-5 text-primary" />
-                </div>
-                <h3 className="font-display font-700 text-lg text-foreground">
-                  Thank you for reaching out!
-                </h3>
-                <p className="text-sm text-muted-foreground max-w-xs">
-                  Your message has been received. I'll get back to you soon.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="mt-2 border-primary/40 text-primary hover:bg-primary/5"
-                  onClick={() => {
-                    setSubmitted(false);
-                    setForm({ name: "", email: "", message: "" });
-                  }}
-                  data-ocid="contact.button"
-                >
-                  Send another message
-                </Button>
-              </motion.div>
-            ) : (
-              <form
-                onSubmit={handleSubmit}
-                className="flex flex-col gap-5"
-                data-ocid="contact.panel"
-              >
-                <div className="grid sm:grid-cols-2 gap-5">
-                  <div className="flex flex-col gap-1.5">
-                    <Label
-                      htmlFor="contact-name"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Name
-                    </Label>
-                    <Input
-                      id="contact-name"
-                      placeholder="Your name"
-                      value={form.name}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, name: e.target.value }))
-                      }
-                      required
-                      disabled={submitMessage.isPending}
-                      data-ocid="contact.input"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label
-                      htmlFor="contact-email"
-                      className="text-sm font-medium text-foreground"
-                    >
-                      Email
-                    </Label>
-                    <Input
-                      id="contact-email"
-                      type="email"
-                      placeholder="your@email.com"
-                      value={form.email}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, email: e.target.value }))
-                      }
-                      required
-                      disabled={submitMessage.isPending}
-                    />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label
-                    htmlFor="contact-message"
-                    className="text-sm font-medium text-foreground"
-                  >
-                    Message
-                  </Label>
-                  <Textarea
-                    id="contact-message"
-                    placeholder="Write your message here..."
-                    rows={4}
-                    value={form.message}
-                    onChange={(e) =>
-                      setForm((f) => ({ ...f, message: e.target.value }))
-                    }
-                    required
-                    disabled={submitMessage.isPending}
-                    data-ocid="contact.textarea"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="self-start font-600 px-8"
-                  disabled={submitMessage.isPending}
-                  data-ocid="contact.submit_button"
-                >
-                  {submitMessage.isPending ? (
-                    <>
-                      <span className="w-4 h-4 mr-2 border-2 border-current border-t-transparent rounded-full animate-spin inline-block" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Send Message"
-                  )}
-                </Button>
-              </form>
-            )}
           </div>
         </motion.div>
       </div>
