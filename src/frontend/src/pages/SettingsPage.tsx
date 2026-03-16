@@ -26,20 +26,26 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Copy,
   Database,
   Globe,
   HelpCircle,
   Key,
+  Link2,
   Loader2,
   Lock,
   LogIn,
+  Mail,
+  MessageCircle,
   MessageSquare,
   Monitor,
   Send,
   Settings,
+  Share2,
   Shield,
   Smartphone,
   Trash2,
@@ -1273,6 +1279,137 @@ function StorageSection() {
   );
 }
 
+// ── Share App ────────────────────────────────────────────────────────────
+
+function ShareAppSection() {
+  const APP_URL = "https://inventory-manager-xey.caffeine.xyz";
+  const [copied, setCopied] = useState(false);
+  const canShare = typeof navigator !== "undefined" && !!navigator.share;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(APP_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+      const el = document.createElement("textarea");
+      el.value = APP_URL;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      await navigator.share({
+        title: "StockVault – Inventory Manager",
+        text: "Check out StockVault, a professional inventory management app!",
+        url: APP_URL,
+      });
+    } catch {
+      // user cancelled or error – do nothing
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card data-ocid="share.card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Share2 className="w-5 h-5 text-primary" />
+            Share StockVault
+          </CardTitle>
+          <CardDescription>
+            Share the app link with friends, colleagues, or on social media.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* App URL display */}
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-muted/50 border border-border">
+            <Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
+            <span className="text-sm text-foreground font-mono truncate flex-1">
+              {APP_URL}
+            </span>
+          </div>
+
+          {/* Copy Link button */}
+          <Button
+            onClick={handleCopy}
+            variant={copied ? "default" : "outline"}
+            className="w-full gap-2"
+            data-ocid="share.copy_link_button"
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                Copy Link
+              </>
+            )}
+          </Button>
+
+          {/* Share to Apps or fallback links */}
+          {canShare ? (
+            <Button
+              onClick={handleShare}
+              className="w-full gap-2 bg-primary text-primary-foreground"
+              data-ocid="share.native_share_button"
+            >
+              <Share2 className="w-4 h-4" />
+              Share to Apps
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground text-center">
+                Share via:
+              </p>
+              <div className="flex gap-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`Check out StockVault! ${APP_URL}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-ocid="share.whatsapp_link"
+                  className="flex-1"
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 text-green-600 border-green-200 hover:bg-green-50"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </Button>
+                </a>
+                <a
+                  href={`mailto:?subject=Check out StockVault&body=${encodeURIComponent(`Check out StockVault – an inventory management app: ${APP_URL}`)}`}
+                  data-ocid="share.email_link"
+                  className="flex-1"
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email
+                  </Button>
+                </a>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Main Settings Page ───────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1285,6 +1422,7 @@ export default function SettingsPage() {
     { id: "help", labelKey: "settings.tab_help", icon: HelpCircle },
     { id: "language", labelKey: "settings.tab_language", icon: Globe },
     { id: "storage", labelKey: "settings.tab_storage", icon: Database },
+    { id: "share", labelKey: "settings.tab_share", icon: Share2 },
   ];
 
   const renderSection = () => {
@@ -1299,6 +1437,8 @@ export default function SettingsPage() {
         return <LanguageSection />;
       case "storage":
         return <StorageSection />;
+      case "share":
+        return <ShareAppSection />;
       default:
         return null;
     }

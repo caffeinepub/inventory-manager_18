@@ -126,6 +126,7 @@ export const translations = {
       tab_help: "Help Center",
       tab_language: "App Language",
       tab_storage: "Storage & Data",
+      tab_share: "Share App",
       account: {
         section_title: "Account Settings",
         edit_profile_title: "Edit Profile",
@@ -349,6 +350,7 @@ export const translations = {
       tab_help: "सहायता केंद्र",
       tab_language: "ऐप भाषा",
       tab_storage: "संग्रहण और डेटा",
+      tab_share: "ऐप शेयर करें",
       account: {
         section_title: "खाता सेटिंग्स",
         edit_profile_title: "प्रोफ़ाइल संपादित करें",
