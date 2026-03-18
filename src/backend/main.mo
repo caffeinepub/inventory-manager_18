@@ -9,10 +9,7 @@ import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
-import Migration "migration";
 
-// Specify the data migration function in the with clause to handle compatibility changes
-(with migration = Migration.run)
 actor {
   type InventoryItem = {
     id : Nat;
@@ -60,6 +57,28 @@ actor {
     repliedAt : ?Time.Time;
   };
 
+  type Order = {
+    id : Nat;
+    customerName : Text;
+    customerPhone : Text;
+    customerAddress : Text;
+    itemId : Nat;
+    itemName : Text;
+    quantity : Nat;
+    totalPrice : Float;
+    status : Text; // "Pending", "Confirmed", "Delivered"
+    createdAt : Time.Time;
+  };
+
+  type Review = {
+    id : Nat;
+    itemId : Nat;
+    reviewerName : Text;
+    rating : Nat;
+    comment : Text;
+    createdAt : Time.Time;
+  };
+
   let items = Map.empty<Nat, InventoryItem>();
   var nextItemId = 1;
 
@@ -72,6 +91,12 @@ actor {
   var nextHelpMessageId = 1;
 
   var visitCount : Nat = 0;
+
+  let orders = Map.empty<Nat, Order>();
+  var nextOrderId = 1;
+
+  let reviews = Map.empty<Nat, Review>();
+  var nextReviewId = 1;
 
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -404,5 +429,132 @@ actor {
 
   public query func getVisitCount() : async Nat {
     visitCount;
+  };
+
+  // ── Orders ──────────────────────────────────────────────────────────────
+
+  public shared func placeOrder(
+    customerName : Text,
+    customerPhone : Text,
+    customerAddress : Text,
+    itemId : Nat,
+    quantity : Nat,
+  ) : async Nat {
+    let timestamp = Time.now();
+
+    switch (items.get(itemId)) {
+      case (null) { Runtime.trap("Item not found") };
+      case (?item) {
+        let totalPrice = item.sellingPrice * quantity.toFloat();
+        let order : Order = {
+          id = nextOrderId;
+          customerName;
+          customerPhone;
+          customerAddress;
+          itemId;
+          itemName = item.name;
+          quantity;
+          totalPrice;
+          status = "Pending";
+          createdAt = timestamp;
+        };
+        orders.add(nextOrderId, order);
+        nextOrderId += 1;
+        order.id;
+      };
+    };
+  };
+
+  public query ({ caller }) func getAllOrders() : async [Order] {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view orders");
+    };
+    orders.values().toArray();
+  };
+
+  public shared ({ caller }) func updateOrderStatus(orderId : Nat, status : Text) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can update order status");
+    };
+
+    switch (orders.get(orderId)) {
+      case (null) { Runtime.trap("Order not found") };
+      case (?order) {
+        let updatedOrder : Order = {
+          id = order.id;
+          customerName = order.customerName;
+          customerPhone = order.customerPhone;
+          customerAddress = order.customerAddress;
+          itemId = order.itemId;
+          itemName = order.itemName;
+          quantity = order.quantity;
+          totalPrice = order.totalPrice;
+          status;
+          createdAt = order.createdAt;
+        };
+        orders.add(orderId, updatedOrder);
+      };
+    };
+  };
+
+  public query ({ caller }) func getOrder(orderId : Nat) : async Order {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can view orders");
+    };
+    switch (orders.get(orderId)) {
+      case (null) { Runtime.trap("Order not found") };
+      case (?order) { order };
+    };
+  };
+
+  // ── Reviews ─────────────────────────────────────────────────────────────
+
+  public shared func submitReview(
+    itemId : Nat,
+    reviewerName : Text,
+    rating : Nat,
+    comment : Text,
+  ) : async Nat {
+    let timestamp = Time.now();
+
+    switch (items.get(itemId)) {
+      case (null) { Runtime.trap("Item not found") };
+      case (?_item) {
+        if (rating < 1 or rating > 5) {
+          Runtime.trap("Rating must be between 1 and 5");
+        };
+        let review : Review = {
+          id = nextReviewId;
+          itemId;
+          reviewerName;
+          rating;
+          comment;
+          createdAt = timestamp;
+        };
+        reviews.add(nextReviewId, review);
+        nextReviewId += 1;
+        review.id;
+      };
+    };
+  };
+
+  public query ({ caller }) func getReviewsByItem(itemId : Nat) : async [Review] {
+    let result = Map.empty<Nat, Review>();
+    for ((id, review) in reviews.entries()) {
+      if (review.itemId == itemId) {
+        result.add(id, review);
+      };
+    };
+    result.values().toArray();
+  };
+
+  public shared ({ caller }) func deleteReview(reviewId : Nat) : async () {
+    if (not (AccessControl.isAdmin(accessControlState, caller))) {
+      Runtime.trap("Unauthorized: Only admins can delete reviews");
+    };
+    if (not reviews.containsKey(reviewId)) {
+      Runtime.trap("Review not found");
+    };
+    reviews.remove(reviewId);
   };
 };

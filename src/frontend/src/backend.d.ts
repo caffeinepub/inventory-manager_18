@@ -51,11 +51,31 @@ export interface ContactMessage {
     repliedAt?: Time;
     message: string;
 }
+export interface Order {
+    id: bigint;
+    customerName: string;
+    status: string;
+    itemId: bigint;
+    customerPhone: string;
+    createdAt: Time;
+    customerAddress: string;
+    itemName: string;
+    quantity: bigint;
+    totalPrice: number;
+}
 export interface UserProfile {
     name: string;
     email: string;
     imageId?: Uint8Array;
     phone: string;
+}
+export interface Review {
+    id: bigint;
+    itemId: bigint;
+    createdAt: Time;
+    reviewerName: string;
+    comment: string;
+    rating: bigint;
 }
 export enum UserRole {
     admin = "admin",
@@ -69,24 +89,31 @@ export interface backendInterface {
     deleteHelpMessage(id: bigint): Promise<void>;
     deleteItem(id: bigint): Promise<void>;
     deleteMessage(id: bigint): Promise<void>;
+    deleteReview(reviewId: bigint): Promise<void>;
     getAllHelpMessages(): Promise<Array<HelpMessage>>;
     getAllItems(): Promise<Array<InventoryItem>>;
     getAllMessages(): Promise<Array<ContactMessage>>;
+    getAllOrders(): Promise<Array<Order>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getItem(id: bigint): Promise<InventoryItem>;
     getMyHelpMessages(): Promise<Array<HelpMessage>>;
+    getOrder(orderId: bigint): Promise<Order>;
+    getReviewsByItem(itemId: bigint): Promise<Array<Review>>;
     getUnreadMessageCount(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getVisitCount(): Promise<bigint>;
     isCallerAdmin(): Promise<boolean>;
     markMessageRead(id: bigint): Promise<void>;
+    placeOrder(customerName: string, customerPhone: string, customerAddress: string, itemId: bigint, quantity: bigint): Promise<bigint>;
     recordVisit(): Promise<void>;
     replyToHelpMessage(id: bigint, replyText: string): Promise<void>;
     replyToMessage(id: bigint, replyText: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     submitContactMessage(name: string, email: string, message: string): Promise<bigint>;
     submitHelpMessage(name: string, email: string, message: string): Promise<bigint>;
+    submitReview(itemId: bigint, reviewerName: string, rating: bigint, comment: string): Promise<bigint>;
     updateItem(id: bigint, name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null, sellingPrice: number, expiryDate: string | null): Promise<void>;
+    updateOrderStatus(orderId: bigint, status: string): Promise<void>;
     updateUserProfile(name: string, email: string, phone: string, imageId: Uint8Array | null): Promise<void>;
 }

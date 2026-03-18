@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import type { HelpMessage, InventoryItem, UserProfile } from "../backend";
+import type {
+  HelpMessage,
+  InventoryItem,
+  Order,
+  Review,
+  UserProfile,
+} from "../backend";
 import { ExternalBlob } from "../backend";
 import { useActor } from "./useActor";
 
@@ -15,7 +21,7 @@ export interface ContactMessage {
   repliedAt?: bigint;
 }
 
-export type { HelpMessage, UserProfile };
+export type { HelpMessage, UserProfile, Order, Review };
 
 export function useAllItems() {
   const { actor, isFetching } = useActor();
@@ -335,6 +341,124 @@ export function useReplyToHelpMessage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allHelpMessages"] });
       queryClient.invalidateQueries({ queryKey: ["myHelpMessages"] });
+    },
+  });
+}
+
+// ── Orders ────────────────────────────────────────────────────────────────
+
+export function useAllOrders(enabled = true) {
+  const { actor, isFetching } = useActor();
+  return useQuery<Order[]>({
+    queryKey: ["allOrders"],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getAllOrders();
+    },
+    enabled: enabled && !!actor && !isFetching,
+    refetchInterval: 30_000,
+  });
+}
+
+export function usePlaceOrder() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      customerName,
+      customerPhone,
+      customerAddress,
+      itemId,
+      quantity,
+    }: {
+      customerName: string;
+      customerPhone: string;
+      customerAddress: string;
+      itemId: bigint;
+      quantity: bigint;
+    }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.placeOrder(
+        customerName,
+        customerPhone,
+        customerAddress,
+        itemId,
+        quantity,
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allOrders"] });
+    },
+  });
+}
+
+export function useUpdateOrderStatus() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      status,
+    }: { orderId: bigint; status: string }) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.updateOrderStatus(orderId, status);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["allOrders"] });
+    },
+  });
+}
+
+// ── Reviews ───────────────────────────────────────────────────────────────
+
+export function useReviewsByItem(itemId: bigint | undefined) {
+  const { actor, isFetching } = useActor();
+  return useQuery<Review[]>({
+    queryKey: ["reviews", itemId?.toString()],
+    queryFn: async () => {
+      if (!actor || itemId === undefined) return [];
+      return actor.getReviewsByItem(itemId);
+    },
+    enabled: !!actor && !isFetching && itemId !== undefined,
+  });
+}
+
+export function useSubmitReview() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      itemId,
+      reviewerName,
+      rating,
+      comment,
+    }: {
+      itemId: bigint;
+      reviewerName: string;
+      rating: bigint;
+      comment: string;
+    }) => {
+      if (!actor) throw new Error("Actor not ready");
+      return actor.submitReview(itemId, reviewerName, rating, comment);
+    },
+    onSuccess: (_result, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ["reviews", vars.itemId.toString()],
+      });
+    },
+  });
+}
+
+export function useDeleteReview() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (reviewId: bigint) => {
+      if (!actor) throw new Error("Not authenticated");
+      return actor.deleteReview(reviewId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reviews"] });
     },
   });
 }

@@ -89,6 +89,10 @@ export class ExternalBlob {
         return this;
     }
 }
+export interface _CaffeineStorageRefillResult {
+    success?: boolean;
+    topped_up_amount?: bigint;
+}
 export interface InventoryItem {
     id: bigint;
     sku: string;
@@ -133,15 +137,31 @@ export interface _CaffeineStorageCreateCertificateResult {
     method: string;
     blob_hash: string;
 }
+export interface Order {
+    id: bigint;
+    customerName: string;
+    status: string;
+    itemId: bigint;
+    customerPhone: string;
+    createdAt: Time;
+    customerAddress: string;
+    itemName: string;
+    quantity: bigint;
+    totalPrice: number;
+}
 export interface UserProfile {
     name: string;
     email: string;
     imageId?: Uint8Array;
     phone: string;
 }
-export interface _CaffeineStorageRefillResult {
-    success?: boolean;
-    topped_up_amount?: bigint;
+export interface Review {
+    id: bigint;
+    itemId: bigint;
+    createdAt: Time;
+    reviewerName: string;
+    comment: string;
+    rating: bigint;
 }
 export enum UserRole {
     admin = "admin",
@@ -162,25 +182,32 @@ export interface backendInterface {
     deleteHelpMessage(id: bigint): Promise<void>;
     deleteItem(id: bigint): Promise<void>;
     deleteMessage(id: bigint): Promise<void>;
+    deleteReview(reviewId: bigint): Promise<void>;
     getAllHelpMessages(): Promise<Array<HelpMessage>>;
     getAllItems(): Promise<Array<InventoryItem>>;
     getAllMessages(): Promise<Array<ContactMessage>>;
+    getAllOrders(): Promise<Array<Order>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getItem(id: bigint): Promise<InventoryItem>;
     getMyHelpMessages(): Promise<Array<HelpMessage>>;
+    getOrder(orderId: bigint): Promise<Order>;
+    getReviewsByItem(itemId: bigint): Promise<Array<Review>>;
     getUnreadMessageCount(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getVisitCount(): Promise<bigint>;
     isCallerAdmin(): Promise<boolean>;
     markMessageRead(id: bigint): Promise<void>;
+    placeOrder(customerName: string, customerPhone: string, customerAddress: string, itemId: bigint, quantity: bigint): Promise<bigint>;
     recordVisit(): Promise<void>;
     replyToHelpMessage(id: bigint, replyText: string): Promise<void>;
     replyToMessage(id: bigint, replyText: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     submitContactMessage(name: string, email: string, message: string): Promise<bigint>;
     submitHelpMessage(name: string, email: string, message: string): Promise<bigint>;
+    submitReview(itemId: bigint, reviewerName: string, rating: bigint, comment: string): Promise<bigint>;
     updateItem(id: bigint, name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null, sellingPrice: number, expiryDate: string | null): Promise<void>;
+    updateOrderStatus(orderId: bigint, status: string): Promise<void>;
     updateUserProfile(name: string, email: string, phone: string, imageId: Uint8Array | null): Promise<void>;
 }
 import type { ContactMessage as _ContactMessage, ExternalBlob as _ExternalBlob, HelpMessage as _HelpMessage, InventoryItem as _InventoryItem, Time as _Time, UserProfile as _UserProfile, UserRole as _UserRole, _CaffeineStorageRefillInformation as __CaffeineStorageRefillInformation, _CaffeineStorageRefillResult as __CaffeineStorageRefillResult } from "./declarations/backend.did.d.ts";
@@ -368,6 +395,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteReview(arg0: bigint): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteReview(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteReview(arg0);
+            return result;
+        }
+    }
     async getAllHelpMessages(): Promise<Array<HelpMessage>> {
         if (this.processError) {
             try {
@@ -408,6 +449,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getAllMessages();
             return from_candid_vec_n23(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getAllOrders(): Promise<Array<Order>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllOrders();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllOrders();
+            return result;
         }
     }
     async getCallerUserProfile(): Promise<UserProfile | null> {
@@ -464,6 +519,34 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getMyHelpMessages();
             return from_candid_vec_n13(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getOrder(arg0: bigint): Promise<Order> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getOrder(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getOrder(arg0);
+            return result;
+        }
+    }
+    async getReviewsByItem(arg0: bigint): Promise<Array<Review>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getReviewsByItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getReviewsByItem(arg0);
+            return result;
         }
     }
     async getUnreadMessageCount(): Promise<bigint> {
@@ -533,6 +616,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.markMessageRead(arg0);
+            return result;
+        }
+    }
+    async placeOrder(arg0: string, arg1: string, arg2: string, arg3: bigint, arg4: bigint): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.placeOrder(arg0, arg1, arg2, arg3, arg4);
             return result;
         }
     }
@@ -620,6 +717,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async submitReview(arg0: bigint, arg1: string, arg2: bigint, arg3: string): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submitReview(arg0, arg1, arg2, arg3);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submitReview(arg0, arg1, arg2, arg3);
+            return result;
+        }
+    }
     async updateItem(arg0: bigint, arg1: string, arg2: string, arg3: string, arg4: string, arg5: number, arg6: string, arg7: bigint, arg8: ExternalBlob | null, arg9: number, arg10: string | null): Promise<void> {
         if (this.processError) {
             try {
@@ -631,6 +742,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateItem(arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, await to_candid_opt_n10(this._uploadFile, this._downloadFile, arg8), arg9, to_candid_opt_n12(this._uploadFile, this._downloadFile, arg10));
+            return result;
+        }
+    }
+    async updateOrderStatus(arg0: bigint, arg1: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateOrderStatus(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateOrderStatus(arg0, arg1);
             return result;
         }
     }

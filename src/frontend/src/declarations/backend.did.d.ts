@@ -47,6 +47,26 @@ export interface InventoryItem {
   'imageId' : [] | [ExternalBlob],
   'price' : number,
 }
+export interface Order {
+  'id' : bigint,
+  'customerName' : string,
+  'status' : string,
+  'itemId' : bigint,
+  'customerPhone' : string,
+  'createdAt' : Time,
+  'customerAddress' : string,
+  'itemName' : string,
+  'quantity' : bigint,
+  'totalPrice' : number,
+}
+export interface Review {
+  'id' : bigint,
+  'itemId' : bigint,
+  'createdAt' : Time,
+  'reviewerName' : string,
+  'comment' : string,
+  'rating' : bigint,
+}
 export type Time = bigint;
 export interface UserProfile {
   'name' : string,
@@ -105,24 +125,30 @@ export interface _SERVICE {
   'deleteHelpMessage' : ActorMethod<[bigint], undefined>,
   'deleteItem' : ActorMethod<[bigint], undefined>,
   'deleteMessage' : ActorMethod<[bigint], undefined>,
+  'deleteReview' : ActorMethod<[bigint], undefined>,
   'getAllHelpMessages' : ActorMethod<[], Array<HelpMessage>>,
   'getAllItems' : ActorMethod<[], Array<InventoryItem>>,
   'getAllMessages' : ActorMethod<[], Array<ContactMessage>>,
+  'getAllOrders' : ActorMethod<[], Array<Order>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getItem' : ActorMethod<[bigint], InventoryItem>,
   'getMyHelpMessages' : ActorMethod<[], Array<HelpMessage>>,
+  'getOrder' : ActorMethod<[bigint], Order>,
+  'getReviewsByItem' : ActorMethod<[bigint], Array<Review>>,
   'getUnreadMessageCount' : ActorMethod<[], bigint>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getVisitCount' : ActorMethod<[], bigint>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'markMessageRead' : ActorMethod<[bigint], undefined>,
+  'placeOrder' : ActorMethod<[string, string, string, bigint, bigint], bigint>,
   'recordVisit' : ActorMethod<[], undefined>,
   'replyToHelpMessage' : ActorMethod<[bigint, string], undefined>,
   'replyToMessage' : ActorMethod<[bigint, string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'submitContactMessage' : ActorMethod<[string, string, string], bigint>,
   'submitHelpMessage' : ActorMethod<[string, string, string], bigint>,
+  'submitReview' : ActorMethod<[bigint, string, bigint, string], bigint>,
   'updateItem' : ActorMethod<
     [
       bigint,
@@ -139,6 +165,7 @@ export interface _SERVICE {
     ],
     undefined
   >,
+  'updateOrderStatus' : ActorMethod<[bigint, string], undefined>,
   'updateUserProfile' : ActorMethod<
     [string, string, string, [] | [Uint8Array]],
     undefined

@@ -62,11 +62,31 @@ export const ContactMessage = IDL.Record({
   'repliedAt' : IDL.Opt(Time),
   'message' : IDL.Text,
 });
+export const Order = IDL.Record({
+  'id' : IDL.Nat,
+  'customerName' : IDL.Text,
+  'status' : IDL.Text,
+  'itemId' : IDL.Nat,
+  'customerPhone' : IDL.Text,
+  'createdAt' : Time,
+  'customerAddress' : IDL.Text,
+  'itemName' : IDL.Text,
+  'quantity' : IDL.Nat,
+  'totalPrice' : IDL.Float64,
+});
 export const UserProfile = IDL.Record({
   'name' : IDL.Text,
   'email' : IDL.Text,
   'imageId' : IDL.Opt(IDL.Vec(IDL.Nat8)),
   'phone' : IDL.Text,
+});
+export const Review = IDL.Record({
+  'id' : IDL.Nat,
+  'itemId' : IDL.Nat,
+  'createdAt' : Time,
+  'reviewerName' : IDL.Text,
+  'comment' : IDL.Text,
+  'rating' : IDL.Nat,
 });
 
 export const idlService = IDL.Service({
@@ -118,13 +138,17 @@ export const idlService = IDL.Service({
   'deleteHelpMessage' : IDL.Func([IDL.Nat], [], []),
   'deleteItem' : IDL.Func([IDL.Nat], [], []),
   'deleteMessage' : IDL.Func([IDL.Nat], [], []),
+  'deleteReview' : IDL.Func([IDL.Nat], [], []),
   'getAllHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
   'getAllItems' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
   'getAllMessages' : IDL.Func([], [IDL.Vec(ContactMessage)], ['query']),
+  'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getItem' : IDL.Func([IDL.Nat], [InventoryItem], ['query']),
   'getMyHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
+  'getOrder' : IDL.Func([IDL.Nat], [Order], ['query']),
+  'getReviewsByItem' : IDL.Func([IDL.Nat], [IDL.Vec(Review)], ['query']),
   'getUnreadMessageCount' : IDL.Func([], [IDL.Nat], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -134,6 +158,11 @@ export const idlService = IDL.Service({
   'getVisitCount' : IDL.Func([], [IDL.Nat], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'markMessageRead' : IDL.Func([IDL.Nat], [], []),
+  'placeOrder' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat],
+      [IDL.Nat],
+      [],
+    ),
   'recordVisit' : IDL.Func([], [], []),
   'replyToHelpMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
   'replyToMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
@@ -144,6 +173,11 @@ export const idlService = IDL.Service({
       [],
     ),
   'submitHelpMessage' : IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Nat], []),
+  'submitReview' : IDL.Func(
+      [IDL.Nat, IDL.Text, IDL.Nat, IDL.Text],
+      [IDL.Nat],
+      [],
+    ),
   'updateItem' : IDL.Func(
       [
         IDL.Nat,
@@ -161,6 +195,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateOrderStatus' : IDL.Func([IDL.Nat, IDL.Text], [], []),
   'updateUserProfile' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Vec(IDL.Nat8))],
       [],
@@ -225,11 +260,31 @@ export const idlFactory = ({ IDL }) => {
     'repliedAt' : IDL.Opt(Time),
     'message' : IDL.Text,
   });
+  const Order = IDL.Record({
+    'id' : IDL.Nat,
+    'customerName' : IDL.Text,
+    'status' : IDL.Text,
+    'itemId' : IDL.Nat,
+    'customerPhone' : IDL.Text,
+    'createdAt' : Time,
+    'customerAddress' : IDL.Text,
+    'itemName' : IDL.Text,
+    'quantity' : IDL.Nat,
+    'totalPrice' : IDL.Float64,
+  });
   const UserProfile = IDL.Record({
     'name' : IDL.Text,
     'email' : IDL.Text,
     'imageId' : IDL.Opt(IDL.Vec(IDL.Nat8)),
     'phone' : IDL.Text,
+  });
+  const Review = IDL.Record({
+    'id' : IDL.Nat,
+    'itemId' : IDL.Nat,
+    'createdAt' : Time,
+    'reviewerName' : IDL.Text,
+    'comment' : IDL.Text,
+    'rating' : IDL.Nat,
   });
   
   return IDL.Service({
@@ -281,13 +336,17 @@ export const idlFactory = ({ IDL }) => {
     'deleteHelpMessage' : IDL.Func([IDL.Nat], [], []),
     'deleteItem' : IDL.Func([IDL.Nat], [], []),
     'deleteMessage' : IDL.Func([IDL.Nat], [], []),
+    'deleteReview' : IDL.Func([IDL.Nat], [], []),
     'getAllHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
     'getAllItems' : IDL.Func([], [IDL.Vec(InventoryItem)], ['query']),
     'getAllMessages' : IDL.Func([], [IDL.Vec(ContactMessage)], ['query']),
+    'getAllOrders' : IDL.Func([], [IDL.Vec(Order)], ['query']),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getItem' : IDL.Func([IDL.Nat], [InventoryItem], ['query']),
     'getMyHelpMessages' : IDL.Func([], [IDL.Vec(HelpMessage)], ['query']),
+    'getOrder' : IDL.Func([IDL.Nat], [Order], ['query']),
+    'getReviewsByItem' : IDL.Func([IDL.Nat], [IDL.Vec(Review)], ['query']),
     'getUnreadMessageCount' : IDL.Func([], [IDL.Nat], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -297,6 +356,11 @@ export const idlFactory = ({ IDL }) => {
     'getVisitCount' : IDL.Func([], [IDL.Nat], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'markMessageRead' : IDL.Func([IDL.Nat], [], []),
+    'placeOrder' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text, IDL.Nat, IDL.Nat],
+        [IDL.Nat],
+        [],
+      ),
     'recordVisit' : IDL.Func([], [], []),
     'replyToHelpMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
     'replyToMessage' : IDL.Func([IDL.Nat, IDL.Text], [], []),
@@ -308,6 +372,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'submitHelpMessage' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Nat],
+        [],
+      ),
+    'submitReview' : IDL.Func(
+        [IDL.Nat, IDL.Text, IDL.Nat, IDL.Text],
         [IDL.Nat],
         [],
       ),
@@ -328,6 +397,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'updateOrderStatus' : IDL.Func([IDL.Nat, IDL.Text], [], []),
     'updateUserProfile' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Opt(IDL.Vec(IDL.Nat8))],
         [],

@@ -45,6 +45,38 @@ function NavAdminLink() {
   );
 }
 
+function LangToggle() {
+  const { language, setLanguage } = useLanguage();
+  return (
+    <button
+      type="button"
+      onClick={() => setLanguage(language === "en" ? "hi" : "en")}
+      className="flex items-center gap-0 rounded-full border border-border bg-muted/50 hover:bg-muted overflow-hidden text-xs font-semibold transition-colors"
+      title="Switch language"
+      data-ocid="nav.lang_toggle"
+    >
+      <span
+        className={`px-2.5 py-1 transition-colors ${
+          language === "en"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        EN
+      </span>
+      <span
+        className={`px-2.5 py-1 transition-colors ${
+          language === "hi"
+            ? "bg-primary text-primary-foreground"
+            : "text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        हि
+      </span>
+    </button>
+  );
+}
+
 function PlatformReachCounter() {
   const { data: count } = useVisitCount();
 
@@ -120,6 +152,7 @@ function RootLayout() {
               </Link>
             </Button>
             <NavAdminLink />
+            <LangToggle />
             <Button
               variant="ghost"
               size="sm"

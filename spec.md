@@ -1,43 +1,50 @@
 # StockVault
 
 ## Current State
-
-StockVault is a full-stack inventory management app on ICP. The backend (Motoko) stores `InventoryItem` records with fields: id, name, category, sku, description, price (purchase price), supplier, stockQuantity, imageId, createdAt, updatedAt. No selling price or expiry date fields exist yet.
-
-The frontend has: Landing Page, Public Inventory List (with voice search), Item Detail, Admin Panel (CRUD + messages + analytics cards: Total Stock Value, Low Stock, Today's Entries + PDF/Excel export), Settings (Account, Privacy, Help Center, Language, Storage, Share App tabs), Certificate page, and Platform Reach visitor counter.
+StockVault is a full-stack inventory management app with:
+- Public inventory listing, item detail pages, voice search, smart filters
+- Admin Panel (login-protected): CRUD for items, Messages tab, Help Center tab, Analytics cards, PDF/Excel export
+- Settings page with Account, Privacy, Help Center, App Language, Storage, Share App tabs
+- Hindi/English translation via JSON file + React context (toggle only in Settings)
+- Platform Reach visitor counter (backend-powered, shown in footer)
+- Certificate of Achievement page (/certificate)
+- PWA support, splash screen, custom logo
+- Backend: InventoryItem (with sellingPrice, expiryDate), ContactMessage, HelpMessage, UserProfile, visitCount
 
 ## Requested Changes (Diff)
 
 ### Add
-- `sellingPrice` (Float) field to `InventoryItem` backend type
-- `expiryDate` (?Text, ISO date string) field to `InventoryItem` backend type
-- Update `createItem` and `updateItem` backend functions to accept `sellingPrice` and `expiryDate`
-- QR code scanner component integration for searching/pre-filling item form by scanning barcodes/QR codes
-- Admin Dashboard: Profit/Loss card = (sellingPrice - price) × stockQuantity, summed across all items
-- Admin Dashboard: "Expiring Soon" summary card listing items expiring within 7 days
-- Admin Dashboard: "Future Roadmap" card with "Upcoming: AI Demand Forecasting" text
-- Inventory table: color-coded rows (red = expired, orange = expiring ≤7 days)
-- Auto-generate Purchase Draft: button in Admin Panel that generates a downloadable list of items with stockQuantity < 10
-- Dark Mode toggle in Settings page, applied app-wide via CSS class on document root
-- Offline-ready "Full offline add": items added while offline are queued in localStorage, auto-synced when internet returns, with a visible sync status indicator
+- **Live Stock Availability**: "In Stock" / "Out of Stock" badge on item cards and detail pages based on stockQuantity > 0
+- **Wishlist / Notify Me**: localStorage-based wishlist; on Out of Stock items show "Notify Me" button that adds to wishlist and shows "We'll contact you when it's back!" toast
+- **Smart Search Filters**: Advanced filter panel on inventory page -- filter by Category, Price Range (min/max), and Rating
+- **User Ratings & Reviews**: Any visitor can leave a star rating (1-5) + reviewer name + text comment on any item. Backend stores reviews per item. Average rating shown on item cards and detail page.
+- **Product Comparison**: "Compare" button on item cards; floating comparison bar at bottom; side-by-side comparison modal for 2-3 selected items
+- **Order Placement Flow**: On item detail page, "Place Order" button opens a form (Name, Phone, Address, Quantity). Submits order to backend. After submission, a PDF invoice is generated client-side.
+- **Admin Orders Tab**: New "Orders" tab in Admin Panel showing all submitted orders (customer name, phone, address, item, quantity, timestamp, status)
+- **WhatsApp Button**: "Chat with Owner" button on every item detail page, linking to https://wa.me/919984606371
+- **Digital Invoices**: After placing an order, auto-generate and download a PDF receipt with order details
+- **Loyalty Points**: localStorage-based demo system -- each order earns points (1 point per ₹100 spent). A small "My Points" widget shown on the inventory page.
+- **Bilingual Toggle in Header**: Language switcher (EN/हि) moved from Settings to the main navbar. Settings language tab updated or simplified.
 
 ### Modify
-- `InventoryItem` type in backend: add `sellingPrice: Float` and `expiryDate: ?Text`
-- ItemForm component: add Selling Price input and Expiry Date picker fields
-- Admin Panel analytics section: add Profit/Loss and Expiring Soon cards alongside existing Total Stock Value, Low Stock, Today's Entries cards
-- Admin Panel inventory table: color-code rows based on expiryDate
-- Inventory List page: show expiry badge on items
+- Backend: Add Order and Review types, and corresponding CRUD functions
+- Navbar: Add language toggle button (EN/HI)
+- Settings: Remove or simplify the App Language tab (since toggle is now in header)
+- Item cards and detail page: Show stock availability badge, average rating, compare/wishlist buttons
 
 ### Remove
-- Nothing removed
+- App Language tab from Settings page navigation (or keep as redirect notice)
 
 ## Implementation Plan
-
-1. **Backend**: Add `sellingPrice: Float` and `expiryDate: ?Text` to `InventoryItem`. Update `createItem` and `updateItem` signatures. Regenerate bindings.
-2. **Select components**: Add `qr-code` component.
-3. **Frontend - ItemForm**: Add Selling Price (number input) and Expiry Date (date picker) fields.
-4. **Frontend - Admin Dashboard**: Add Profit/Loss card, Expiring Soon card, Future Roadmap card.
-5. **Frontend - Admin Inventory Table**: Color-code rows (red/orange) based on expiryDate. Add Purchase Draft download button.
-6. **Frontend - QR Scanner**: Integrate qr-code component in Admin Panel "Add Item" flow to scan and pre-fill name/SKU.
-7. **Frontend - Dark Mode**: Add toggle in Settings. Store preference in localStorage. Apply `dark` class to `<html>` element. Add Tailwind dark: variants to key components.
-8. **Frontend - Offline Add**: Intercept `createItem` calls when offline. Queue in localStorage (`stockvault_offline_queue`). On reconnect, auto-sync queued items. Show sync status badge in Admin Panel.
+1. Add `Order` and `Review` types to Motoko backend
+2. Add `placeOrder`, `getAllOrders` (admin), `addReview`, `getReviewsForItem` backend functions
+3. Frontend: Add language toggle (EN/HI) to navbar
+4. Frontend: Add In Stock / Out of Stock badges to item cards and detail pages
+5. Frontend: Add Wishlist/Notify Me with localStorage logic
+6. Frontend: Enhance inventory filter panel with Category, Price Range, Rating filters
+7. Frontend: Add Ratings & Reviews section on item detail page (submit form + display list)
+8. Frontend: Add Product Comparison (compare button, floating bar, modal)
+9. Frontend: Add Order placement form on item detail page + PDF invoice generation
+10. Frontend: Add WhatsApp "Chat with Owner" button on item detail page
+11. Frontend: Add Loyalty Points widget (localStorage-based)
+12. Frontend: Add Orders tab to Admin Panel

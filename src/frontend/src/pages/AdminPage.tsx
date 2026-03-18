@@ -39,6 +39,7 @@ import {
   QrCode,
   Reply,
   ShieldOff,
+  ShoppingCart,
   Trash2,
   TrendingDown,
   TrendingUp,
@@ -57,6 +58,7 @@ import {
   useAllHelpMessages,
   useAllItems,
   useAllMessages,
+  useAllOrders,
   useCreateItem,
   useDeleteItem,
   useDeleteMessage,
@@ -66,8 +68,10 @@ import {
   useReplyToMessage,
   useUnreadMessageCount,
   useUpdateItem,
+  useUpdateOrderStatus,
   useVisitCount,
 } from "../hooks/useQueries";
+import type { Order } from "../hooks/useQueries";
 import type {
   ContactMessage,
   HelpMessage,
@@ -1109,6 +1113,160 @@ function HelpMessagesTab() {
 
 // ── Main AdminPage ────────────────────────────────────────────────────────
 
+// ── Orders Tab ────────────────────────────────────────────────────────────
+
+function OrdersTab() {
+  const { data: orders, isLoading } = useAllOrders(true);
+  const updateStatus = useUpdateOrderStatus();
+
+  const formatDateTime = (ns: bigint) => {
+    const ms = Number(ns / 1_000_000n);
+    return new Date(ms).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const statusColors: Record<string, string> = {
+    Pending: "bg-amber-100 text-amber-700 border-amber-200",
+    Confirmed: "bg-blue-100 text-blue-700 border-blue-200",
+    Delivered: "bg-green-100 text-green-700 border-green-200",
+    Cancelled: "bg-red-100 text-red-700 border-red-200",
+  };
+
+  const handleStatusChange = async (orderId: bigint, status: string) => {
+    try {
+      await updateStatus.mutateAsync({ orderId, status });
+      toast.success(`Order #${orderId} marked as ${status}`);
+    } catch {
+      toast.error("Failed to update order status.");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2" data-ocid="admin.orders.loading_state">
+        {["a", "b", "c"].map((k) => (
+          <Skeleton key={k} className="h-12 w-full" />
+        ))}
+      </div>
+    );
+  }
+
+  if (!orders || orders.length === 0) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-md"
+        data-ocid="admin.orders.empty_state"
+      >
+        <ShoppingCart className="w-10 h-10 text-muted-foreground/30 mb-3" />
+        <p className="text-sm text-muted-foreground">
+          No orders yet. Orders placed by customers will appear here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-md border border-border overflow-hidden"
+      data-ocid="admin.orders.table"
+    >
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium w-16">
+                Order ID
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                Customer
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden sm:table-cell">
+                Item
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right hidden md:table-cell">
+                Qty
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
+                Total
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium">
+                Status
+              </TableHead>
+              <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden lg:table-cell">
+                Date
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders.map((order: Order, idx: number) => (
+              <TableRow
+                key={order.id.toString()}
+                className="border-border hover:bg-muted/20"
+                data-ocid={`admin.order.${idx + 1}`}
+              >
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  #{order.id.toString()}
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {order.customerName}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.customerPhone}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[150px]">
+                      {order.customerAddress}
+                    </p>
+                  </div>
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">
+                  <span className="text-sm text-foreground">
+                    {order.itemName}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right hidden md:table-cell">
+                  <span className="font-mono text-sm">
+                    {order.quantity.toString()}
+                  </span>
+                </TableCell>
+                <TableCell className="text-right">
+                  <span className="font-mono text-sm text-primary font-medium">
+                    ₹{order.totalPrice.toLocaleString("en-IN")}
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <select
+                    value={order.status}
+                    onChange={(e) =>
+                      handleStatusChange(order.id, e.target.value)
+                    }
+                    className={`text-xs rounded-full border px-2 py-1 font-medium cursor-pointer ${statusColors[order.status] || "bg-muted text-foreground border-border"}`}
+                    data-ocid={`admin.order.status_select.${idx + 1}`}
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Confirmed">Confirmed</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </TableCell>
+                <TableCell className="hidden lg:table-cell">
+                  <span className="text-xs text-muted-foreground">
+                    {formatDateTime(order.createdAt)}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const {
     identity,
@@ -1123,6 +1281,9 @@ export default function AdminPage() {
   const { data: isAdmin, isLoading: adminLoading } = useIsAdmin();
   const { data: items, isLoading: itemsLoading } = useAllItems();
   const { data: unreadCount } = useUnreadMessageCount(
+    isAuthenticated && isAdmin === true,
+  );
+  const { data: ordersData } = useAllOrders(
     isAuthenticated && isAdmin === true,
   );
 
@@ -1438,6 +1599,20 @@ export default function AdminPage() {
               <MessageSquare className="w-4 h-4 mr-2" />
               {t("admin.tab_help")}
             </TabsTrigger>
+            <TabsTrigger
+              value="orders"
+              data-ocid="admin.orders_tab"
+              className="relative"
+            >
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Orders
+              {ordersData &&
+                ordersData.filter((o) => o.status === "Pending").length > 0 && (
+                  <span className="ml-2 min-w-[18px] h-[18px] rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                    {ordersData.filter((o) => o.status === "Pending").length}
+                  </span>
+                )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="inventory">
@@ -1599,6 +1774,9 @@ export default function AdminPage() {
 
           <TabsContent value="help">
             <HelpMessagesTab />
+          </TabsContent>
+          <TabsContent value="orders">
+            <OrdersTab />
           </TabsContent>
         </Tabs>
       </motion.div>
