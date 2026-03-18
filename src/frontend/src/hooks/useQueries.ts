@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import type { HelpMessage, InventoryItem, UserProfile } from "../backend";
 import { ExternalBlob } from "../backend";
 import { useActor } from "./useActor";
@@ -330,4 +331,46 @@ export function useReplyToHelpMessage() {
       queryClient.invalidateQueries({ queryKey: ["myHelpMessages"] });
     },
   });
+}
+
+// ── Visitor Counter (localStorage based) ─────────────────────────────────
+
+const PLATFORM_REACH_KEY = "stockvault_platform_reach";
+const SESSION_VISITED_KEY = "stockvault_session_visited";
+
+export function useVisitCount() {
+  const [count, setCount] = useState<number>(() => {
+    return Number.parseInt(localStorage.getItem(PLATFORM_REACH_KEY) || "0", 10);
+  });
+
+  useEffect(() => {
+    const handler = () => {
+      setCount(
+        Number.parseInt(localStorage.getItem(PLATFORM_REACH_KEY) || "0", 10),
+      );
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  return { data: count, isLoading: false };
+}
+
+export function useRecordVisit() {
+  return {
+    mutate: () => {
+      if (!sessionStorage.getItem(SESSION_VISITED_KEY)) {
+        sessionStorage.setItem(SESSION_VISITED_KEY, "true");
+        const current = Number.parseInt(
+          localStorage.getItem(PLATFORM_REACH_KEY) || "0",
+          10,
+        );
+        const newCount = current + 1;
+        localStorage.setItem(PLATFORM_REACH_KEY, String(newCount));
+        window.dispatchEvent(
+          new StorageEvent("storage", { key: PLATFORM_REACH_KEY }),
+        );
+      }
+    },
+  };
 }

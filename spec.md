@@ -1,49 +1,41 @@
-# StockVault – Settings Page
+# StockVault
 
 ## Current State
-- App has Landing Page, Inventory List, Item Detail, and Admin Panel pages.
-- Admin Panel has Inventory and Messages tabs.
-- Header has: Logo (left), Browse + Admin nav buttons (right), optional PWA install button.
-- Backend: inventory CRUD, contact messages (submit/read/delete/mark-read), authorization via AccessControl.
-- Auth: Internet Identity (via useInternetIdentity hook).
+- Admin Panel has one analytics card (Platform Reach / visitor counter)
+- Inventory tab shows a table with Name, Category, SKU, Price, Stock, Actions
+- Inventory data comes from `useAllItems()` which returns `InventoryItem[]` with fields: id, name, category, sku, price, stockQuantity, createdAt
+- Settings > Help Center tab has a chat-style interface for users to message admin
+- No PDF/Excel export in Admin Panel
+- No inventory summary cards
+- No step-by-step guide in Help Center
 
 ## Requested Changes (Diff)
 
 ### Add
-- Gear icon (Settings) button in header, next to Admin button, visible to all users.
-- `/settings` route and `SettingsPage` component.
-- Settings page with 5 sections:
-  1. **Account Settings**: Edit Profile (name, email, phone, profile photo – saves to backend), Create New Account (UI form for regular user signup), Delete Account (requires typing "DELETE", deletes current logged-in user's account).
-  2. **Privacy & Security**: Placeholder UI for passkeys – "Add a passkey" and "Manage devices" options, no real WebAuthn flow.
-  3. **Help Center**: Chat-style UI. Any user can send a message (goes to existing Admin Messages backend). Admin can reply from Admin Panel; replies shown in Help Center chat.
-  4. **App Language**: Dropdown with major world languages (English, Hindi, Spanish, French, German, Arabic, Portuguese, Japanese, Chinese, Russian). UI-only preference stored in localStorage.
-  5. **Storage & Data**: Shows estimated localStorage usage, "Clear Cache" button to clear localStorage.
-- Backend: `UserProfile` type with name, email, phone, imageId (optional blob). Functions: `getUserProfile`, `updateUserProfile`, `deleteAccount`.
-- Backend: `adminReply` field added to `ContactMessage` (optional Text). New function: `replyToMessage(id, replyText)` – admin only. Help Center fetches messages by caller identity.
-- Help Center public message submission reuses existing `submitContactMessage`.
-- New `getMyMessages` query: returns messages submitted by the caller (matched by... we'll use a separate `helpMessages` map keyed by caller principal for Help Center, separate from contact form messages).
+- 3 summary cards in Admin Panel (above the tabs, alongside/after Analytics card):
+  1. **Total Stock Value**: sum of (price × stockQuantity) for all items, formatted as ₹ INR
+  2. **Low Stock Items**: count of items where stockQuantity < 10
+  3. **Today's Entries**: count of items where createdAt (nanoseconds) falls on today's local date
+- **Download as PDF** button in Admin Panel inventory tab: exports Name, Category, Quantity, Price using jsPDF or similar
+- **Export to Excel** button in Admin Panel inventory tab: exports same fields as CSV/XLSX using xlsx or papaparse
+- **Step-by-step Help Guide card** in Settings > Help Center section (visible to all users) and in Admin Panel Help tab, explaining:
+  - For Public: how to browse/search inventory, view item details
+  - For Admin: how to add/edit/delete items, manage messages
 
 ### Modify
-- `App.tsx`: Add gear icon button to header nav, add `/settings` route.
-- `AdminPage.tsx`: Add reply UI in Messages tab – each message row gets a "Reply" button that opens a dialog to type and send a reply. Reply is saved to backend and shown inline in the message row.
-- Backend `ContactMessage` type: add optional `adminReply : ?Text` and `repliedAt : ?Time.Time`.
+- AdminPage.tsx: add 3 new summary cards above tabs
+- AdminPage.tsx inventory tab: add PDF + Excel export buttons above the table
+- SettingsPage.tsx HelpCenterSection: add a guide card above the chat interface
+- Admin HelpMessagesTab area: add a similar guide card for admin reference
 
 ### Remove
-- Nothing removed.
+- Nothing removed
 
 ## Implementation Plan
-1. Update backend:
-   - Add `UserProfile` type and stable map.
-   - Add `getUserProfile`, `updateUserProfile`, `deleteAccount` functions.
-   - Add `adminReply` and `repliedAt` fields to `ContactMessage`.
-   - Add `replyToMessage(id, replyText)` admin function.
-   - Add `getMyMessages(callerEmail)` – since IC doesn't track email, Help Center will use a separate `helpMessages` map keyed by a session token or just use submitContactMessage with a special tag; simplest: reuse `submitContactMessage` and show all messages to the sender based on a unique sender identifier stored in localStorage.
-2. Frontend:
-   - Add Settings route and SettingsPage with sidebar navigation for 5 sections.
-   - Account Settings: profile form (useGetUserProfile, useUpdateUserProfile), create account form (UI only with toast), delete account with "DELETE" confirmation.
-   - Privacy & Security: static placeholder cards.
-   - Help Center: chat bubbles, send message form (reuses submitContactMessage), shows sent messages from localStorage.
-   - App Language: select dropdown, saves to localStorage.
-   - Storage & Data: reads localStorage usage, clear cache button.
-   - Admin Panel: add Reply button + dialog to Messages tab rows.
-   - Header: add gear icon button linking to /settings.
+1. In AdminPage.tsx, compute summary stats from `items` array (already fetched via `useAllItems()`)
+2. Render 3 new stat cards (Total Stock Value ₹, Low Stock count, Today's Entries count) in a responsive grid
+3. Add PDF export using `jsPDF` + `jspdf-autotable` -- fields: Name, Category, Quantity, Price
+4. Add Excel export using `xlsx` library -- same fields, download as .xlsx
+5. Place both export buttons in the inventory tab toolbar (above the table, right-aligned)
+6. In SettingsPage.tsx HelpCenterSection, add a collapsible/static guide card with numbered steps for public users
+7. In AdminPage.tsx Help tab area, add a similar guide card for admin reference

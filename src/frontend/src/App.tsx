@@ -8,13 +8,17 @@ import {
   createRoute,
   createRouter,
 } from "@tanstack/react-router";
-import { Award, Download, Settings, Shield } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Award, BarChart2, Download, Settings, Shield } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import SplashScreen from "./components/SplashScreen";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { usePwaInstall } from "./hooks/use-pwa-install";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
-import { useUnreadMessageCount } from "./hooks/useQueries";
+import {
+  useRecordVisit,
+  useUnreadMessageCount,
+  useVisitCount,
+} from "./hooks/useQueries";
 import AdminPage from "./pages/AdminPage";
 import CertificatePage from "./pages/CertificatePage";
 import InventoryListPage from "./pages/InventoryListPage";
@@ -41,12 +45,49 @@ function NavAdminLink() {
   );
 }
 
+function PlatformReachCounter() {
+  const { data: count } = useVisitCount();
+
+  return (
+    <div
+      className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-3"
+      data-ocid="footer.platform_reach_section"
+    >
+      <span className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+      </span>
+      <span className="text-green-600 font-semibold">Live</span>
+      <BarChart2 className="w-3.5 h-3.5 text-primary" />
+      <span className="font-medium text-foreground">Platform Reach:</span>
+      <span className="font-bold text-primary">
+        {count !== undefined ? count.toLocaleString() : 0}
+      </span>
+    </div>
+  );
+}
+
+function AppVisitRecorder() {
+  const recordVisit = useRecordVisit();
+  const recorded = useRef(false);
+
+  useEffect(() => {
+    if (!recorded.current) {
+      recorded.current = true;
+      recordVisit.mutate();
+    }
+  }, [recordVisit.mutate]);
+
+  return null;
+}
+
 function RootLayout() {
   const { isInstallable, promptInstall } = usePwaInstall();
   const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <AppVisitRecorder />
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="container max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link
@@ -104,7 +145,8 @@ function RootLayout() {
 
       <footer className="border-t border-border py-6 mt-auto">
         <div className="container max-w-7xl mx-auto px-4 text-center">
-          <p className="text-sm font-medium text-foreground tracking-wide">
+          <PlatformReachCounter />
+          <p className="text-sm font-medium text-foreground tracking-wide mt-3">
             {t("footer.developed_by")}{" "}
             <span className="text-primary font-semibold">
               {t("footer.developer_name")}

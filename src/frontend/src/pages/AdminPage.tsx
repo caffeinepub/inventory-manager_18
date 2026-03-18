@@ -19,9 +19,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  AlertTriangle,
+  BarChart2,
+  BookOpen,
+  CalendarPlus,
+  Download,
+  FileSpreadsheet,
   Inbox,
+  IndianRupee,
   Loader2,
   LogIn,
+  LogOut,
   MessageSquare,
   Package,
   Pencil,
@@ -29,6 +37,7 @@ import {
   Reply,
   ShieldOff,
   Trash2,
+  TrendingUp,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
@@ -51,6 +60,7 @@ import {
   useReplyToMessage,
   useUnreadMessageCount,
   useUpdateItem,
+  useVisitCount,
 } from "../hooks/useQueries";
 import type {
   ContactMessage,
@@ -77,6 +87,262 @@ function formatDateTime(nanoseconds: bigint): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// ── Summary Card helpers ─────────────────────────────────────────────────
+
+function formatINR(value: number): string {
+  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+function isToday(nanoseconds: bigint): boolean {
+  const ms = Number(nanoseconds / 1_000_000n);
+  const d = new Date(ms);
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
+
+interface SummaryCardsProps {
+  items: import("../backend").InventoryItem[];
+}
+
+function SummaryCards({ items }: SummaryCardsProps) {
+  const totalValue = items.reduce(
+    (sum, item) => sum + item.price * Number(item.stockQuantity),
+    0,
+  );
+  const lowStockCount = items.filter(
+    (item) => Number(item.stockQuantity) < 10,
+  ).length;
+  const todayCount = items.filter((item) => isToday(item.createdAt)).length;
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {/* Total Stock Value */}
+      <div
+        className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
+        data-ocid="admin.total_value_card"
+      >
+        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+          <IndianRupee className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Total Stock Value
+          </p>
+          <p className="text-xl font-bold text-primary mt-0.5">
+            {formatINR(totalValue)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">Qty × Price</p>
+        </div>
+      </div>
+
+      {/* Low Stock Items */}
+      <div
+        className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
+        data-ocid="admin.low_stock_card"
+      >
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+            lowStockCount > 0 ? "bg-amber-100" : "bg-green-100"
+          }`}
+        >
+          <AlertTriangle
+            className={`w-5 h-5 ${
+              lowStockCount > 0 ? "text-amber-600" : "text-green-600"
+            }`}
+          />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Low Stock Items
+          </p>
+          <p
+            className={`text-xl font-bold mt-0.5 ${
+              lowStockCount > 0 ? "text-amber-600" : "text-green-600"
+            }`}
+          >
+            {lowStockCount}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Threshold: &lt; 10 units
+          </p>
+        </div>
+      </div>
+
+      {/* Today's Entries */}
+      <div
+        className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
+        data-ocid="admin.today_entries_card"
+      >
+        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+          <CalendarPlus className="w-5 h-5 text-blue-600" />
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Today's Entries
+          </p>
+          <p className="text-xl font-bold text-blue-600 mt-0.5">{todayCount}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Added today</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Export helpers ───────────────────────────────────────────────────────
+
+async function exportToPDF(items: import("../backend").InventoryItem[]) {
+  // Dynamically load jsPDF from CDN
+  if (!(window as any).jspdf) {
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Failed to load jsPDF"));
+      document.head.appendChild(s);
+    });
+  }
+  if (!(window as any).jspdf?.jsPDF && !(window as any).jsPDF) {
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src =
+        "https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js";
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Failed to load autotable"));
+      document.head.appendChild(s);
+    });
+  }
+
+  const jsPDFConstructor =
+    (window as any).jspdf?.jsPDF || (window as any).jsPDF;
+  const doc = new jsPDFConstructor({ orientation: "landscape" });
+
+  const today = new Date().toLocaleDateString("en-IN");
+  doc.setFontSize(16);
+  doc.setTextColor(14, 30, 80);
+  doc.text("StockVault Inventory Report", 14, 16);
+  doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
+  doc.text(`Generated: ${today}`, 14, 23);
+
+  const tableData = items.map((item) => [
+    item.name,
+    item.category,
+    item.stockQuantity.toString(),
+    formatINR(item.price),
+  ]);
+
+  doc.autoTable({
+    startY: 28,
+    head: [["Name", "Category", "Quantity", "Price"]],
+    body: tableData,
+    headStyles: { fillColor: [14, 30, 80], textColor: 255, fontSize: 9 },
+    bodyStyles: { fontSize: 8 },
+    alternateRowStyles: { fillColor: [240, 248, 255] },
+  });
+
+  doc.save("stockvault-inventory.pdf");
+}
+
+function exportToExcel(items: import("../backend").InventoryItem[]) {
+  const headers = ["Name", "Category", "Quantity", "Price (INR)"];
+  const rows = items.map((item) => [
+    item.name,
+    item.category,
+    item.stockQuantity.toString(),
+    item.price.toFixed(2),
+  ]);
+
+  // Build CSV with BOM for Excel UTF-8 compatibility
+  const bom = "\uFEFF";
+  const csv = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+
+  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "stockvault-inventory.xlsx";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function AnalyticsCard() {
+  const { data: count, isLoading } = useVisitCount();
+
+  return (
+    <div
+      className="rounded-lg border border-border bg-card p-5 mb-6"
+      data-ocid="admin.analytics_card"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
+            <BarChart2 className="w-4 h-4 text-primary" />
+          </div>
+          <h2 className="text-sm font-semibold text-foreground">
+            Platform Analytics
+          </h2>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+          </span>
+          <span className="text-xs font-semibold text-green-600">Live</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="rounded-md bg-primary/5 border border-primary/10 p-4 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+            <TrendingUp className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              Platform Reach
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-20 mt-1" />
+            ) : (
+              <p className="text-2xl font-bold text-primary mt-0.5">
+                {count !== undefined ? count.toLocaleString() : 0}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Total page visits
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-md bg-green-50 border border-green-100 p-4 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+            <BarChart2 className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              Live Tracking
+            </p>
+            <p className="text-sm font-semibold text-green-700 mt-0.5">
+              Active
+            </p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Updates every 5 seconds
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 interface ReplyDialogProps {
@@ -333,6 +599,43 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
   );
 }
 
+function AdminHelpGuideCard() {
+  return (
+    <div
+      className="rounded-lg border border-blue-200 bg-blue-50 p-4 mb-5"
+      data-ocid="admin.help_guide_card"
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <BookOpen className="w-4 h-4 text-primary" />
+        </div>
+        <h3 className="text-sm font-semibold text-foreground">
+          Admin Quick Reference Guide
+        </h3>
+      </div>
+      <ol className="space-y-1.5 text-xs text-muted-foreground list-none">
+        {[
+          "Log in via the Admin link from your Caffeine dashboard",
+          'Use "Inventory" tab to view, add, edit, or delete items',
+          'Click "+" button to add a new item with name, category, price & image',
+          "Click ✏️ to edit an existing item, 🗑️ to delete it",
+          'Use "Export" buttons (PDF / Excel) to download inventory reports',
+          '"Messages" tab shows contact form submissions — reply inline',
+          '"Help Center" tab shows user queries — reply directly from here',
+          "Platform Analytics shows real-time visitor count",
+        ].map((step, i) => (
+          <li key={step} className="flex items-start gap-2">
+            <span className="shrink-0 w-4 h-4 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function HelpMessagesTab() {
   const { t } = useLanguage();
   const { data: messages, isLoading } = useAllHelpMessages(true);
@@ -364,6 +667,7 @@ function HelpMessagesTab() {
 
   return (
     <>
+      <AdminHelpGuideCard />
       <div className="rounded-md border border-border overflow-hidden">
         <Table>
           <TableHeader>
@@ -452,8 +756,13 @@ function HelpMessagesTab() {
 }
 
 export default function AdminPage() {
-  const { identity, login, isLoggingIn, isInitializing } =
-    useInternetIdentity();
+  const {
+    identity,
+    login,
+    isLoggingIn,
+    isInitializing,
+    clear: logout,
+  } = useInternetIdentity();
   const { t } = useLanguage();
   const isAuthenticated = !!identity;
 
@@ -577,6 +886,15 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground">
             {t("admin.not_authorized_desc")}
           </p>
+          <Button
+            onClick={logout}
+            variant="outline"
+            className="mt-6 gap-2"
+            data-ocid="admin.signout_button"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out &amp; Try Again
+          </Button>
         </div>
       </div>
     );
@@ -602,16 +920,62 @@ export default function AdminPage() {
             </p>
           </div>
           {activeTab === "inventory" && (
-            <Button
-              onClick={handleAddClick}
-              className="bg-primary text-primary-foreground hover:bg-primary/90"
-              data-ocid="admin.add_item_button"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {t("admin.add_item")}
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  if (!items || items.length === 0) {
+                    toast.error("No items to export");
+                    return;
+                  }
+                  try {
+                    await exportToPDF(items);
+                    toast.success("PDF downloaded!");
+                  } catch {
+                    toast.error("PDF export failed. Please try again.");
+                  }
+                }}
+                className="border-primary text-primary hover:bg-primary/5"
+                data-ocid="admin.download_pdf_button"
+              >
+                <Download className="w-3.5 h-3.5 mr-1.5" />
+                PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!items || items.length === 0) {
+                    toast.error("No items to export");
+                    return;
+                  }
+                  exportToExcel(items);
+                  toast.success("Excel file downloaded!");
+                }}
+                className="border-primary text-primary hover:bg-primary/5"
+                data-ocid="admin.export_excel_button"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
+                Excel
+              </Button>
+              <Button
+                onClick={handleAddClick}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                data-ocid="admin.add_item_button"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                {t("admin.add_item")}
+              </Button>
+            </div>
           )}
         </div>
+
+        {/* Analytics Card */}
+        <AnalyticsCard />
+
+        {/* Summary Cards */}
+        {items && <SummaryCards items={items} />}
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">

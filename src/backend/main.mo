@@ -68,6 +68,8 @@ actor {
   let helpMessages = Map.empty<Nat, HelpMessage>();
   var nextHelpMessageId = 1;
 
+  var visitCount : Nat = 0;
+
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
   include MixinStorage();
@@ -363,5 +365,15 @@ actor {
     };
     helpMessages.remove(id);
   };
-};
 
+  // ── Visitor Counter ───────────────────────────────────────────────────────
+
+  public shared func recordVisit() : async () {
+    visitCount += 1;
+  };
+
+  public query func getVisitCount() : async Nat {
+    visitCount;
+  };
+
+};

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  BookOpen,
   Check,
   CheckCircle2,
   ChevronDown,
@@ -969,8 +970,109 @@ function HelpCenterSection() {
     }
   };
 
+  const [guideOpen, setGuideOpen] = useState(false);
+
   return (
     <div className="space-y-6">
+      {/* Step-by-step guide card */}
+      <Card className="border-blue-200 bg-blue-50/60">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <BookOpen className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-base">
+                  📖 How to Use StockVault
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Step-by-step guide for everyone
+                </CardDescription>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setGuideOpen((prev) => !prev)}
+              className="text-xs border-primary/30 text-primary hover:bg-primary/5"
+              data-ocid="settings.help_guide_toggle"
+            >
+              {guideOpen ? (
+                <>
+                  <ChevronUp className="w-3.5 h-3.5 mr-1" /> Hide Guide
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3.5 h-3.5 mr-1" /> View Guide
+                </>
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <AnimatePresence initial={false}>
+          {guideOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{ overflow: "hidden" }}
+            >
+              <CardContent className="pt-0">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-semibold text-foreground mb-1.5">
+                      👤 For Everyone:
+                    </p>
+                    <ol className="space-y-1.5 text-xs text-muted-foreground list-none">
+                      {[
+                        'Go to "Browse Inventory" to see all available items',
+                        "Use the search bar to find specific items by name or category",
+                        "Click on any item to see its full details (price, stock, description)",
+                        "Use voice search (🎤) for hands-free, speech-based filtering",
+                      ].map((step, i) => (
+                        <li key={step} className="flex items-start gap-2">
+                          <span className="shrink-0 w-4 h-4 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center mt-0.5">
+                            {i + 1}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground mb-1.5">
+                      🔐 For Admin:
+                    </p>
+                    <ol
+                      className="space-y-1.5 text-xs text-muted-foreground list-none"
+                      start={5}
+                    >
+                      {[
+                        'Click "Admin" in the navbar and log in with your credentials',
+                        'Use the "+" button to add new inventory items',
+                        "Click the edit (✏️) icon to update existing items",
+                        "Click the delete (🗑️) icon to remove items from inventory",
+                        '"Messages" tab shows user contact form submissions',
+                        'Use "Export" buttons to download inventory as PDF or Excel',
+                      ].map((step, i) => (
+                        <li key={step} className="flex items-start gap-2">
+                          <span className="shrink-0 w-4 h-4 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold flex items-center justify-center mt-0.5">
+                            {i + 5}
+                          </span>
+                          <span>{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                </div>
+              </CardContent>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </Card>
+
       <Card className="border-border">
         <CardHeader>
           <div className="flex items-center gap-2">

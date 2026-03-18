@@ -85,4 +85,6 @@ export interface backendInterface {
     submitHelpMessage(name: string, email: string, message: string): Promise<bigint>;
     updateItem(id: bigint, name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null): Promise<void>;
     updateUserProfile(name: string, email: string, phone: string, imageId: Uint8Array | null): Promise<void>;
+    recordVisit(): Promise<void>;
+    getVisitCount(): Promise<bigint>;
 }
