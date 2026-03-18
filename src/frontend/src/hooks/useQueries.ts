@@ -62,6 +62,8 @@ export interface ItemFormData {
   supplier: string;
   stockQuantity: bigint;
   imageFile?: File | null;
+  sellingPrice: number;
+  expiryDate?: string | null;
 }
 
 export function useCreateItem() {
@@ -84,6 +86,8 @@ export function useCreateItem() {
         data.supplier,
         data.stockQuantity,
         imageId,
+        data.sellingPrice ?? 0,
+        data.expiryDate ?? null,
       );
     },
     onSuccess: () => {
@@ -116,6 +120,8 @@ export function useUpdateItem() {
         data.supplier,
         data.stockQuantity,
         imageId,
+        data.sellingPrice ?? 0,
+        data.expiryDate ?? null,
       );
     },
     onSuccess: (_result, vars) => {

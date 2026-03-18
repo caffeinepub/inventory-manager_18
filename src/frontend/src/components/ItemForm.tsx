@@ -8,7 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { CalendarDays, ImageIcon, Loader2, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import type { InventoryItem } from "../backend";
 import type { ItemFormData } from "../hooks/useQueries";
@@ -18,6 +18,7 @@ interface ItemFormProps {
   onSubmit: (data: ItemFormData) => Promise<void>;
   onCancel: () => void;
   isPending: boolean;
+  initialSku?: string;
 }
 
 export default function ItemForm({
@@ -25,16 +26,21 @@ export default function ItemForm({
   onSubmit,
   onCancel,
   isPending,
+  initialSku,
 }: ItemFormProps) {
   const [name, setName] = useState(item?.name ?? "");
   const [category, setCategory] = useState(item?.category ?? "");
-  const [sku, setSku] = useState(item?.sku ?? "");
+  const [sku, setSku] = useState(item?.sku ?? initialSku ?? "");
   const [description, setDescription] = useState(item?.description ?? "");
   const [price, setPrice] = useState(item?.price?.toString() ?? "");
+  const [sellingPrice, setSellingPrice] = useState(
+    item?.sellingPrice?.toString() ?? "",
+  );
   const [supplier, setSupplier] = useState(item?.supplier ?? "");
   const [stockQuantity, setStockQuantity] = useState(
     item?.stockQuantity?.toString() ?? "",
   );
+  const [expiryDate, setExpiryDate] = useState(item?.expiryDate ?? "");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(
     item?.imageId ? item.imageId.getDirectURL() : null,
@@ -48,7 +54,13 @@ export default function ItemForm({
     if (!category.trim()) e.category = "Category is required";
     if (!sku.trim()) e.sku = "SKU is required";
     if (!price || Number.isNaN(Number(price)) || Number(price) < 0)
-      e.price = "Valid price required";
+      e.price = "Valid purchase price required";
+    if (
+      !sellingPrice ||
+      Number.isNaN(Number(sellingPrice)) ||
+      Number(sellingPrice) < 0
+    )
+      e.sellingPrice = "Valid selling price required";
     if (!supplier.trim()) e.supplier = "Supplier is required";
     if (
       !stockQuantity ||
@@ -72,9 +84,11 @@ export default function ItemForm({
       sku: sku.trim(),
       description: description.trim(),
       price: Number.parseFloat(price),
+      sellingPrice: Number.parseFloat(sellingPrice),
       supplier: supplier.trim(),
       stockQuantity: BigInt(Math.floor(Number(stockQuantity))),
       imageFile,
+      expiryDate: expiryDate.trim() || null,
     });
   };
 
@@ -181,23 +195,24 @@ export default function ItemForm({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Item description"
-            rows={3}
+            rows={2}
             className="bg-background border-border resize-none"
             data-ocid="item_form.description_textarea"
           />
         </div>
 
+        {/* Price fields */}
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label
               htmlFor="item-price"
               className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
             >
-              Price *
+              Purchase Price (₹) *
             </Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                $
+                ₹
               </span>
               <Input
                 id="item-price"
@@ -218,6 +233,36 @@ export default function ItemForm({
 
           <div className="space-y-1.5">
             <Label
+              htmlFor="item-selling-price"
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+            >
+              Selling Price (₹) *
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                ₹
+              </span>
+              <Input
+                id="item-selling-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={sellingPrice}
+                onChange={(e) => setSellingPrice(e.target.value)}
+                placeholder="0.00"
+                className="bg-background border-border pl-7 font-mono"
+                data-ocid="item_form.selling_price_input"
+              />
+            </div>
+            {errors.sellingPrice && (
+              <p className="text-xs text-destructive">{errors.sellingPrice}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label
               htmlFor="item-stock"
               className="text-xs font-medium text-muted-foreground uppercase tracking-wide"
             >
@@ -236,6 +281,24 @@ export default function ItemForm({
             {errors.stockQuantity && (
               <p className="text-xs text-destructive">{errors.stockQuantity}</p>
             )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="item-expiry"
+              className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1"
+            >
+              <CalendarDays className="w-3 h-3" />
+              Expiry Date
+            </Label>
+            <Input
+              id="item-expiry"
+              type="date"
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              className="bg-background border-border font-mono text-sm"
+              data-ocid="item_form.expiry_date_input"
+            />
           </div>
         </div>
 

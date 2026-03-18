@@ -19,8 +19,10 @@ export interface InventoryItem {
     sku: string;
     stockQuantity: bigint;
     supplier: string;
+    expiryDate?: string;
     name: string;
     createdAt: Time;
+    sellingPrice: number;
     description: string;
     updatedAt: Time;
     category: string;
@@ -62,7 +64,7 @@ export enum UserRole {
 }
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createItem(name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null): Promise<bigint>;
+    createItem(name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null, sellingPrice: number, expiryDate: string | null): Promise<bigint>;
     deleteAccount(): Promise<void>;
     deleteHelpMessage(id: bigint): Promise<void>;
     deleteItem(id: bigint): Promise<void>;
@@ -76,15 +78,15 @@ export interface backendInterface {
     getMyHelpMessages(): Promise<Array<HelpMessage>>;
     getUnreadMessageCount(): Promise<bigint>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getVisitCount(): Promise<bigint>;
     isCallerAdmin(): Promise<boolean>;
     markMessageRead(id: bigint): Promise<void>;
+    recordVisit(): Promise<void>;
     replyToHelpMessage(id: bigint, replyText: string): Promise<void>;
     replyToMessage(id: bigint, replyText: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     submitContactMessage(name: string, email: string, message: string): Promise<bigint>;
     submitHelpMessage(name: string, email: string, message: string): Promise<bigint>;
-    updateItem(id: bigint, name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null): Promise<void>;
+    updateItem(id: bigint, name: string, category: string, sku: string, description: string, price: number, supplier: string, stockQuantity: bigint, imageId: ExternalBlob | null, sellingPrice: number, expiryDate: string | null): Promise<void>;
     updateUserProfile(name: string, email: string, phone: string, imageId: Uint8Array | null): Promise<void>;
-    recordVisit(): Promise<void>;
-    getVisitCount(): Promise<bigint>;
 }

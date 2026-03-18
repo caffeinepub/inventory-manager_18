@@ -61,6 +61,37 @@
     --sidebar-border: 0.84 0.04 225;
     --sidebar-ring: 0.35 0.14 250;
   }
+
+  .dark {
+    /* Dark mode - navy/slate palette */
+    --background: 0.13 0.025 240;
+    --foreground: 0.92 0.02 220;
+    --card: 0.17 0.03 240;
+    --card-foreground: 0.92 0.02 220;
+    --popover: 0.17 0.03 240;
+    --popover-foreground: 0.92 0.02 220;
+    --primary: 0.65 0.12 250;
+    --primary-foreground: 0.1 0.02 240;
+    --secondary: 0.22 0.04 240;
+    --secondary-foreground: 0.92 0.02 220;
+    --muted: 0.21 0.03 240;
+    --muted-foreground: 0.62 0.05 240;
+    --accent: 0.65 0.12 250;
+    --accent-foreground: 0.1 0.02 240;
+    --destructive: 0.55 0.22 25;
+    --destructive-foreground: 0.97 0.01 25;
+    --border: 0.27 0.04 240;
+    --input: 0.27 0.04 240;
+    --ring: 0.65 0.12 250;
+    --sidebar: 0.15 0.03 240;
+    --sidebar-foreground: 0.92 0.02 220;
+    --sidebar-primary: 0.65 0.12 250;
+    --sidebar-primary-foreground: 0.1 0.02 240;
+    --sidebar-accent: 0.22 0.04 240;
+    --sidebar-accent-foreground: 0.92 0.02 220;
+    --sidebar-border: 0.27 0.04 240;
+    --sidebar-ring: 0.65 0.12 250;
+  }
 }
 
 @layer base {
@@ -69,6 +100,10 @@
   }
   html {
     color-scheme: light;
+  }
+  .dark html,
+  html.dark {
+    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;

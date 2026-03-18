@@ -4,14 +4,15 @@ import Map "mo:core/Map";
 import Time "mo:core/Time";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
+import Iter "mo:core/Iter";
 import MixinStorage "blob-storage/Mixin";
 import Storage "blob-storage/Storage";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
-
+import Migration "migration";
 
 // Specify the data migration function in the with clause to handle compatibility changes
-
+(with migration = Migration.run)
 actor {
   type InventoryItem = {
     id : Nat;
@@ -25,6 +26,8 @@ actor {
     imageId : ?Storage.ExternalBlob;
     createdAt : Time.Time;
     updatedAt : Time.Time;
+    sellingPrice : Float;
+    expiryDate : ?Text;
   };
 
   type ContactMessage = {
@@ -76,7 +79,18 @@ actor {
 
   // ── Inventory ────────────────────────────────────────────────────────────────
 
-  public shared ({ caller }) func createItem(name : Text, category : Text, sku : Text, description : Text, price : Float, supplier : Text, stockQuantity : Nat, imageId : ?Storage.ExternalBlob) : async Nat {
+  public shared ({ caller }) func createItem(
+    name : Text,
+    category : Text,
+    sku : Text,
+    description : Text,
+    price : Float,
+    supplier : Text,
+    stockQuantity : Nat,
+    imageId : ?Storage.ExternalBlob,
+    sellingPrice : Float,
+    expiryDate : ?Text,
+  ) : async Nat {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can create items");
     };
@@ -93,13 +107,27 @@ actor {
       imageId;
       createdAt = timestamp;
       updatedAt = timestamp;
+      sellingPrice;
+      expiryDate;
     };
     items.add(nextItemId, item);
     nextItemId += 1;
     item.id;
   };
 
-  public shared ({ caller }) func updateItem(id : Nat, name : Text, category : Text, sku : Text, description : Text, price : Float, supplier : Text, stockQuantity : Nat, imageId : ?Storage.ExternalBlob) : async () {
+  public shared ({ caller }) func updateItem(
+    id : Nat,
+    name : Text,
+    category : Text,
+    sku : Text,
+    description : Text,
+    price : Float,
+    supplier : Text,
+    stockQuantity : Nat,
+    imageId : ?Storage.ExternalBlob,
+    sellingPrice : Float,
+    expiryDate : ?Text,
+  ) : async () {
     if (not (AccessControl.isAdmin(accessControlState, caller))) {
       Runtime.trap("Unauthorized: Only admins can update items");
     };
@@ -118,6 +146,8 @@ actor {
           imageId;
           createdAt = existingItem.createdAt;
           updatedAt = Time.now();
+          sellingPrice;
+          expiryDate;
         };
         items.add(id, updatedItem);
       };
@@ -375,5 +405,4 @@ actor {
   public query func getVisitCount() : async Nat {
     visitCount;
   };
-
 };

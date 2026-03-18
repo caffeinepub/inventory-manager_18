@@ -1,10 +1,10 @@
 import Map "mo:core/Map";
 import Nat "mo:core/Nat";
 import Time "mo:core/Time";
-import Principal "mo:core/Principal";
+import Storage "blob-storage/Storage";
 
 module {
-  type InventoryItem = {
+  type OldInventoryItem = {
     id : Nat;
     name : Text;
     category : Text;
@@ -13,79 +13,41 @@ module {
     price : Float;
     supplier : Text;
     stockQuantity : Nat;
-    imageId : ?Blob;
+    imageId : ?Storage.ExternalBlob;
     createdAt : Time.Time;
     updatedAt : Time.Time;
   };
 
-  type OldContactMessage = {
-    id : Nat;
-    name : Text;
-    email : Text;
-    message : Text;
-    createdAt : Time.Time;
-    isRead : Bool;
-  };
-
   type OldActor = {
-    items : Map.Map<Nat, InventoryItem>;
-    nextItemId : Nat;
-    messages : Map.Map<Nat, OldContactMessage>;
-    nextMessageId : Nat;
+    items : Map.Map<Nat, OldInventoryItem>;
   };
 
-  type UserProfile = {
-    name : Text;
-    email : Text;
-    phone : Text;
-    imageId : ?Blob;
-  };
-
-  type HelpMessage = {
-    id : Nat;
-    senderPrincipal : Text;
-    name : Text;
-    email : Text;
-    message : Text;
-    createdAt : Time.Time;
-    isRead : Bool;
-    adminReply : ?Text;
-    repliedAt : ?Time.Time;
-  };
-
-  type NewContactMessage = {
+  type NewInventoryItem = {
     id : Nat;
     name : Text;
-    email : Text;
-    message : Text;
+    category : Text;
+    sku : Text;
+    description : Text;
+    price : Float;
+    supplier : Text;
+    stockQuantity : Nat;
+    imageId : ?Storage.ExternalBlob;
     createdAt : Time.Time;
-    isRead : Bool;
-    adminReply : ?Text;
-    repliedAt : ?Time.Time;
+    updatedAt : Time.Time;
+    sellingPrice : Float;
+    expiryDate : ?Text;
   };
 
   type NewActor = {
-    items : Map.Map<Nat, InventoryItem>;
-    nextItemId : Nat;
-    messages : Map.Map<Nat, NewContactMessage>;
-    nextMessageId : Nat;
-    userProfiles : Map.Map<Principal, UserProfile>;
-    helpMessages : Map.Map<Nat, HelpMessage>;
-    nextHelpMessageId : Nat;
+    items : Map.Map<Nat, NewInventoryItem>;
   };
 
   public func run(old : OldActor) : NewActor {
-    let newMessages = old.messages.map<Nat, OldContactMessage, NewContactMessage>(
-      func(_id, oldMsg) {
-        { oldMsg with adminReply = null; repliedAt = null };
+    let newItems = old.items.map<Nat, OldInventoryItem, NewInventoryItem>(
+      func(_id, oldItem) {
+        { oldItem with sellingPrice = oldItem.price; expiryDate = null };
       }
     );
-    {
-      old with
-      messages = newMessages;
-      userProfiles = Map.empty<Principal, UserProfile>();
-      helpMessages = Map.empty<Nat, HelpMessage>();
-      nextHelpMessageId = 1;
-    };
+    { items = newItems };
   };
 };

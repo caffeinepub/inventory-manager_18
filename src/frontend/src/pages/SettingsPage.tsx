@@ -44,11 +44,14 @@ import {
   MessageCircle,
   MessageSquare,
   Monitor,
+  Moon,
+  Palette,
   Send,
   Settings,
   Share2,
   Shield,
   Smartphone,
+  Sun,
   Trash2,
   User,
   UserPlus,
@@ -1200,6 +1203,83 @@ function HelpCenterSection() {
   );
 }
 
+// ── Appearance ─────────────────────────────────────────────────────────
+
+function AppearanceSection() {
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    return localStorage.getItem("stockvault_dark_mode") === "true";
+  });
+
+  const toggleDark = () => {
+    const next = !isDark;
+    setIsDark(next);
+    localStorage.setItem("stockvault_dark_mode", String(next));
+    if (next) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    toast.success(next ? "Dark mode enabled" : "Light mode enabled");
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card className="border-border">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+              <Palette className="w-4 h-4 text-violet-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Appearance</CardTitle>
+              <CardDescription className="text-xs">
+                Customize the look and feel of StockVault
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                {isDark ? (
+                  <Moon className="w-4 h-4 text-primary" />
+                ) : (
+                  <Sun className="w-4 h-4 text-amber-500" />
+                )}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Dark Mode</p>
+                <p className="text-xs text-muted-foreground">
+                  {isDark
+                    ? "Currently using dark theme"
+                    : "Currently using light theme"}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isDark}
+              onClick={toggleDark}
+              data-ocid="settings.dark_mode_toggle"
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 ${
+                isDark ? "bg-primary" : "bg-muted-foreground/30"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                  isDark ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Language ─────────────────────────────────────────────────────────────
 
 function LanguageSection() {
@@ -1525,6 +1605,7 @@ export default function SettingsPage() {
     { id: "language", labelKey: "settings.tab_language", icon: Globe },
     { id: "storage", labelKey: "settings.tab_storage", icon: Database },
     { id: "share", labelKey: "settings.tab_share", icon: Share2 },
+    { id: "appearance", labelKey: "settings.tab_appearance", icon: Palette },
   ];
 
   const renderSection = () => {
@@ -1541,6 +1622,8 @@ export default function SettingsPage() {
         return <StorageSection />;
       case "share":
         return <ShareAppSection />;
+      case "appearance":
+        return <AppearanceSection />;
       default:
         return null;
     }

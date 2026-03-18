@@ -22,7 +22,9 @@ import {
   AlertTriangle,
   BarChart2,
   BookOpen,
+  BrainCircuit,
   CalendarPlus,
+  Clock,
   Download,
   FileSpreadsheet,
   Inbox,
@@ -34,19 +36,23 @@ import {
   Package,
   Pencil,
   Plus,
+  QrCode,
   Reply,
   ShieldOff,
   Trash2,
+  TrendingDown,
   TrendingUp,
+  WifiOff,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { InventoryItem } from "../backend";
 import DeleteConfirmDialog from "../components/DeleteConfirmDialog";
 import ItemForm from "../components/ItemForm";
 import { useLanguage } from "../context/LanguageContext";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useOfflineSync } from "../hooks/useOfflineSync";
 import {
   useAllHelpMessages,
   useAllItems,
@@ -67,15 +73,14 @@ import type {
   HelpMessage,
   ItemFormData,
 } from "../hooks/useQueries";
+import { useQRScanner } from "../qr-code/useQRScanner";
+import { getOfflineQueue } from "../utils/offlineQueue";
 
 const HEADER_SKELETON_KEYS = ["hs-a", "hs-b"];
 const ROW_SKELETON_KEYS = ["rs-a", "rs-b", "rs-c", "rs-d", "rs-e", "rs-f"];
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(value);
+  return `\u20b9${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function formatDateTime(nanoseconds: bigint): string {
@@ -89,10 +94,8 @@ function formatDateTime(nanoseconds: bigint): string {
   });
 }
 
-// ── Summary Card helpers ─────────────────────────────────────────────────
-
 function formatINR(value: number): string {
-  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  return `\u20b9${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function isToday(nanoseconds: bigint): boolean {
@@ -106,8 +109,35 @@ function isToday(nanoseconds: bigint): boolean {
   );
 }
 
+function getExpiryStatus(
+  expiryDate?: string,
+): "expired" | "soon" | "ok" | "none" {
+  if (!expiryDate) return "none";
+  const expiry = new Date(expiryDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffMs = expiry.getTime() - today.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  if (diffDays < 0) return "expired";
+  if (diffDays <= 7) return "soon";
+  return "ok";
+}
+
+function getRowClass(expiryStatus: ReturnType<typeof getExpiryStatus>) {
+  switch (expiryStatus) {
+    case "expired":
+      return "border-border bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-950/50";
+    case "soon":
+      return "border-border bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-950/50";
+    default:
+      return "border-border hover:bg-muted/20";
+  }
+}
+
+// ── Summary Cards ──────────────────────────────────────────────────────────
+
 interface SummaryCardsProps {
-  items: import("../backend").InventoryItem[];
+  items: InventoryItem[];
 }
 
 function SummaryCards({ items }: SummaryCardsProps) {
@@ -120,8 +150,26 @@ function SummaryCards({ items }: SummaryCardsProps) {
   ).length;
   const todayCount = items.filter((item) => isToday(item.createdAt)).length;
 
+  // Profit/Loss
+  const totalProfitLoss = items.reduce((sum, item) => {
+    const pl = (item.sellingPrice - item.price) * Number(item.stockQuantity);
+    return sum + pl;
+  }, 0);
+  const isProfitable = totalProfitLoss >= 0;
+
+  // Expiring soon (within 7 days, including expired)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiringSoon = items.filter((item) => {
+    if (!item.expiryDate) return false;
+    const expiry = new Date(item.expiryDate);
+    const diffDays =
+      (expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  });
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
       {/* Total Stock Value */}
       <div
         className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
@@ -137,7 +185,9 @@ function SummaryCards({ items }: SummaryCardsProps) {
           <p className="text-xl font-bold text-primary mt-0.5">
             {formatINR(totalValue)}
           </p>
-          <p className="text-xs text-muted-foreground mt-0.5">Qty × Price</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Qty × Purchase Price
+          </p>
         </div>
       </div>
 
@@ -190,14 +240,124 @@ function SummaryCards({ items }: SummaryCardsProps) {
           <p className="text-xs text-muted-foreground mt-0.5">Added today</p>
         </div>
       </div>
+
+      {/* Profit / Loss */}
+      <div
+        className="rounded-lg border border-border bg-card p-4 flex items-center gap-4"
+        data-ocid="admin.profit_loss_card"
+      >
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+            isProfitable ? "bg-green-100" : "bg-red-100"
+          }`}
+        >
+          {isProfitable ? (
+            <TrendingUp className="w-5 h-5 text-green-600" />
+          ) : (
+            <TrendingDown className="w-5 h-5 text-red-600" />
+          )}
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Total Profit / Loss
+          </p>
+          <p
+            className={`text-xl font-bold mt-0.5 ${
+              isProfitable ? "text-green-600" : "text-red-600"
+            }`}
+          >
+            {isProfitable ? "+" : ""}
+            {formatINR(totalProfitLoss)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            (Selling − Purchase) × Qty
+          </p>
+        </div>
+      </div>
+
+      {/* Expiring Soon */}
+      <div
+        className="rounded-lg border border-border bg-card p-4 flex items-start gap-4"
+        data-ocid="admin.expiring_soon_card"
+      >
+        <div
+          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+            expiringSoon.length > 0 ? "bg-red-100" : "bg-green-100"
+          }`}
+        >
+          <Clock
+            className={`w-5 h-5 ${
+              expiringSoon.length > 0 ? "text-red-600" : "text-green-600"
+            }`}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            Expiring Soon
+          </p>
+          <p
+            className={`text-xl font-bold mt-0.5 ${
+              expiringSoon.length > 0 ? "text-red-600" : "text-green-600"
+            }`}
+          >
+            {expiringSoon.length}
+          </p>
+          {expiringSoon.length > 0 && expiringSoon.length <= 3 ? (
+            <ul className="mt-1 space-y-0.5">
+              {expiringSoon.map((i) => (
+                <li
+                  key={i.id.toString()}
+                  className="text-xs text-red-600 truncate"
+                >
+                  {i.name}
+                </li>
+              ))}
+            </ul>
+          ) : expiringSoon.length > 3 ? (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {expiringSoon.length} items need attention
+            </p>
+          ) : (
+            <p className="text-xs text-green-600 mt-0.5">All good!</p>
+          )}
+        </div>
+      </div>
+
+      {/* Future Roadmap */}
+      <div
+        className="rounded-lg border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-4 flex items-start gap-4"
+        data-ocid="admin.roadmap_card"
+      >
+        <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0 mt-0.5">
+          <BrainCircuit className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide">
+              Coming Soon
+            </p>
+            <Badge
+              variant="outline"
+              className="text-[10px] border-primary/30 text-primary px-1.5 py-0"
+            >
+              Roadmap
+            </Badge>
+          </div>
+          <p className="text-sm font-semibold text-foreground">
+            🤖 AI Demand Forecasting
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Intelligent restocking predictions powered by AI
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── Export helpers ───────────────────────────────────────────────────────
+// ── Export helpers ────────────────────────────────────────────────────────
 
-async function exportToPDF(items: import("../backend").InventoryItem[]) {
-  // Dynamically load jsPDF from CDN
+async function exportToPDF(items: InventoryItem[]) {
   if (!(window as any).jspdf) {
     await new Promise<void>((resolve, reject) => {
       const s = document.createElement("script");
@@ -250,7 +410,7 @@ async function exportToPDF(items: import("../backend").InventoryItem[]) {
   doc.save("stockvault-inventory.pdf");
 }
 
-function exportToExcel(items: import("../backend").InventoryItem[]) {
+function exportToExcel(items: InventoryItem[]) {
   const headers = ["Name", "Category", "Quantity", "Price (INR)"];
   const rows = items.map((item) => [
     item.name,
@@ -259,7 +419,6 @@ function exportToExcel(items: import("../backend").InventoryItem[]) {
     item.price.toFixed(2),
   ]);
 
-  // Build CSV with BOM for Excel UTF-8 compatibility
   const bom = "\uFEFF";
   const csv = [headers, ...rows]
     .map((row) =>
@@ -275,6 +434,45 @@ function exportToExcel(items: import("../backend").InventoryItem[]) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+function exportPurchaseDraft(items: InventoryItem[]) {
+  const lowStock = items.filter((item) => Number(item.stockQuantity) < 10);
+  if (lowStock.length === 0) {
+    toast.info("No items below threshold — nothing to draft!");
+    return;
+  }
+  const headers = [
+    "Name",
+    "SKU",
+    "Category",
+    "Current Stock",
+    "Suggested Order Qty",
+  ];
+  const rows = lowStock.map((item) => [
+    item.name,
+    item.sku,
+    item.category,
+    item.stockQuantity.toString(),
+    String(10 - Number(item.stockQuantity)),
+  ]);
+  const bom = "\uFEFF";
+  const csv = [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+  const today = new Date().toISOString().slice(0, 10);
+  const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `purchase-draft-${today}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast.success(`Purchase draft with ${lowStock.length} items downloaded!`);
+}
+
+// ── Analytics Card ────────────────────────────────────────────────────────
 
 function AnalyticsCard() {
   const { data: count, isLoading } = useVisitCount();
@@ -344,6 +542,154 @@ function AnalyticsCard() {
     </div>
   );
 }
+
+// ── QR Scanner Modal ──────────────────────────────────────────────────────
+
+interface QRScannerModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onScan: (sku: string) => void;
+}
+
+function QRScannerModal({ open, onOpenChange, onScan }: QRScannerModalProps) {
+  const {
+    qrResults,
+    isScanning,
+    isActive,
+    isSupported,
+    error,
+    isLoading,
+    canStartScanning,
+    startScanning,
+    stopScanning,
+    clearResults,
+    videoRef,
+    canvasRef,
+  } = useQRScanner({
+    facingMode: "environment",
+    scanInterval: 150,
+    maxResults: 3,
+  });
+
+  const scannedRef = useRef(false);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scanner functions are stable refs
+  useEffect(() => {
+    if (open) {
+      scannedRef.current = false;
+      clearResults();
+      startScanning();
+    } else {
+      stopScanning();
+      scannedRef.current = false;
+    }
+  }, [open]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scanner functions are stable refs
+  useEffect(() => {
+    if (qrResults.length > 0 && !scannedRef.current) {
+      scannedRef.current = true;
+      const data = qrResults[0].data;
+      stopScanning();
+      onScan(data);
+      onOpenChange(false);
+    }
+  }, [qrResults]);
+
+  const isMobile =
+    /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent,
+    );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm" data-ocid="admin.qr_scanner_modal">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-primary" />
+            Scan Barcode / QR Code
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {isSupported === false ? (
+            <div className="text-sm text-destructive text-center py-4">
+              Camera not supported on this device.
+            </div>
+          ) : (
+            <>
+              <div className="relative rounded-lg overflow-hidden bg-black aspect-video">
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-cover"
+                  playsInline
+                  muted
+                />
+                {isScanning && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-40 h-40 border-2 border-primary rounded-lg animate-pulse" />
+                  </div>
+                )}
+              </div>
+              <canvas ref={canvasRef} className="hidden" />
+
+              {error && (
+                <p className="text-xs text-destructive">{error.message}</p>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1"
+                  onClick={isActive ? stopScanning : startScanning}
+                  disabled={isLoading || (!isActive && !canStartScanning)}
+                  data-ocid="admin.qr_scanner.toggle_button"
+                >
+                  {isLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                  ) : null}
+                  {isActive ? "Stop" : "Start"} Camera
+                </Button>
+                {isMobile && isActive && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const s = useQRScanner as any;
+                      if (s.switchCamera) s.switchCamera();
+                    }}
+                    disabled={isLoading || !isActive}
+                    data-ocid="admin.qr_scanner.switch_button"
+                  >
+                    Flip
+                  </Button>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Point your camera at a barcode or QR code. It will be detected
+                automatically.
+              </p>
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            data-ocid="admin.qr_scanner.close_button"
+          >
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Reply Dialog ──────────────────────────────────────────────────────────
 
 interface ReplyDialogProps {
   open: boolean;
@@ -423,6 +769,8 @@ function ReplyDialog({
     </Dialog>
   );
 }
+
+// ── Messages Tab ──────────────────────────────────────────────────────────
 
 interface MessagesTabProps {
   isAdmin: boolean;
@@ -599,6 +947,8 @@ function MessagesTab({ isAdmin }: MessagesTabProps) {
   );
 }
 
+// ── Admin Help Guide ──────────────────────────────────────────────────────
+
 function AdminHelpGuideCard() {
   return (
     <div
@@ -618,10 +968,10 @@ function AdminHelpGuideCard() {
           "Log in via the Admin link from your Caffeine dashboard",
           'Use "Inventory" tab to view, add, edit, or delete items',
           'Click "+" button to add a new item with name, category, price & image',
-          "Click ✏️ to edit an existing item, 🗑️ to delete it",
+          "Click \u270f\ufe0f to edit an existing item, \ud83d\uddd1\ufe0f to delete it",
           'Use "Export" buttons (PDF / Excel) to download inventory reports',
-          '"Messages" tab shows contact form submissions — reply inline',
-          '"Help Center" tab shows user queries — reply directly from here',
+          '"Messages" tab shows contact form submissions \u2014 reply inline',
+          '"Help Center" tab shows user queries \u2014 reply directly from here',
           "Platform Analytics shows real-time visitor count",
         ].map((step, i) => (
           <li key={step} className="flex items-start gap-2">
@@ -635,6 +985,8 @@ function AdminHelpGuideCard() {
     </div>
   );
 }
+
+// ── Help Messages Tab ─────────────────────────────────────────────────────
 
 function HelpMessagesTab() {
   const { t } = useLanguage();
@@ -755,6 +1107,8 @@ function HelpMessagesTab() {
   );
 }
 
+// ── Main AdminPage ────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   const {
     identity,
@@ -776,6 +1130,23 @@ export default function AdminPage() {
   const updateItem = useUpdateItem();
   const deleteItem = useDeleteItem();
 
+  // Offline sync
+  useOfflineSync();
+  const [offlineQueueCount, setOfflineQueueCount] = useState(
+    () => getOfflineQueue().length,
+  );
+
+  // Refresh offline count whenever component renders or window comes online
+  useEffect(() => {
+    const refresh = () => setOfflineQueueCount(getOfflineQueue().length);
+    window.addEventListener("online", refresh);
+    window.addEventListener("offline", refresh);
+    return () => {
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("offline", refresh);
+    };
+  }, []);
+
   const [formOpen, setFormOpen] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | undefined>(
     undefined,
@@ -784,18 +1155,51 @@ export default function AdminPage() {
     undefined,
   );
   const [activeTab, setActiveTab] = useState("inventory");
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [scannedSku, setScannedSku] = useState<string | undefined>(undefined);
 
   const handleAddClick = () => {
     setEditItem(undefined);
+    setScannedSku(undefined);
     setFormOpen(true);
   };
 
   const handleEditClick = (item: InventoryItem) => {
     setEditItem(item);
+    setScannedSku(undefined);
     setFormOpen(true);
   };
 
+  const handleQrScan = (sku: string) => {
+    setScannedSku(sku);
+    setEditItem(undefined);
+    setFormOpen(true);
+    toast.success(`Scanned: ${sku}`);
+  };
+
   const handleFormSubmit = async (data: ItemFormData) => {
+    if (!navigator.onLine) {
+      // Save offline
+      const { queueOfflineItem } = await import("../utils/offlineQueue");
+      queueOfflineItem({
+        name: data.name,
+        category: data.category,
+        sku: data.sku,
+        description: data.description,
+        price: data.price,
+        supplier: data.supplier,
+        stockQuantity: data.stockQuantity.toString(),
+        sellingPrice: data.sellingPrice ?? 0,
+        expiryDate: data.expiryDate,
+        queuedAt: Date.now(),
+      });
+      setOfflineQueueCount(getOfflineQueue().length);
+      toast.info("Item saved offline. Will sync when connected.");
+      setFormOpen(false);
+      setEditItem(undefined);
+      return;
+    }
+
     try {
       if (editItem) {
         await updateItem.mutateAsync({ id: editItem.id, data });
@@ -806,6 +1210,7 @@ export default function AdminPage() {
       }
       setFormOpen(false);
       setEditItem(undefined);
+      setScannedSku(undefined);
     } catch {
       toast.error(t("admin.item_save_error"));
     }
@@ -908,11 +1313,24 @@ export default function AdminPage() {
         transition={{ duration: 0.25 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
-            <h1 className="font-display font-700 text-2xl text-foreground tracking-tight">
-              {t("admin.title")}
-            </h1>
+            <div className="flex items-center gap-3">
+              <h1 className="font-display font-700 text-2xl text-foreground tracking-tight">
+                {t("admin.title")}
+              </h1>
+              {offlineQueueCount > 0 && (
+                <div
+                  className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-100 border border-amber-300"
+                  data-ocid="admin.offline_pending_badge"
+                >
+                  <WifiOff className="w-3 h-3 text-amber-600" />
+                  <span className="text-xs font-semibold text-amber-700">
+                    {offlineQueueCount} pending sync
+                  </span>
+                </div>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground mt-0.5">
               {items
                 ? `${items.length} ${t("admin.items_total")}`
@@ -958,6 +1376,26 @@ export default function AdminPage() {
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 mr-1.5" />
                 Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => items && exportPurchaseDraft(items)}
+                className="border-amber-500 text-amber-700 hover:bg-amber-50"
+                data-ocid="admin.purchase_draft_button"
+              >
+                <Package className="w-3.5 h-3.5 mr-1.5" />
+                Purchase Draft
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQrScannerOpen(true)}
+                className="border-primary text-primary hover:bg-primary/5"
+                data-ocid="admin.scan_barcode_button"
+              >
+                <QrCode className="w-3.5 h-3.5 mr-1.5" />
+                Scan
               </Button>
               <Button
                 onClick={handleAddClick}
@@ -1042,86 +1480,113 @@ export default function AdminPage() {
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right hidden sm:table-cell">
                         {t("admin.col_stock")}
                       </TableHead>
+                      <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium hidden lg:table-cell">
+                        Expiry
+                      </TableHead>
                       <TableHead className="text-xs uppercase tracking-wide text-muted-foreground font-medium text-right">
                         {t("admin.col_actions")}
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {items.map((item, idx) => (
-                      <TableRow
-                        key={item.id.toString()}
-                        className="border-border hover:bg-muted/20"
-                        data-ocid={`admin.item.${idx + 1}`}
-                      >
-                        <TableCell className="text-muted-foreground text-xs font-mono w-8">
-                          {idx + 1}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {item.imageId ? (
-                              <img
-                                src={item.imageId.getDirectURL()}
-                                alt={item.name}
-                                className="w-7 h-7 rounded object-cover border border-border"
-                              />
-                            ) : (
-                              <div className="w-7 h-7 rounded bg-muted/50 border border-border flex items-center justify-center">
-                                <Package className="w-3 h-3 text-muted-foreground" />
-                              </div>
-                            )}
-                            <span className="text-sm font-medium text-foreground">
-                              {item.name}
+                    {items.map((item, idx) => {
+                      const expiryStatus = getExpiryStatus(item.expiryDate);
+                      return (
+                        <TableRow
+                          key={item.id.toString()}
+                          className={getRowClass(expiryStatus)}
+                          data-ocid={`admin.item.${idx + 1}`}
+                        >
+                          <TableCell className="text-muted-foreground text-xs font-mono w-8">
+                            {idx + 1}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {item.imageId ? (
+                                <img
+                                  src={item.imageId.getDirectURL()}
+                                  alt={item.name}
+                                  className="w-7 h-7 rounded object-cover border border-border"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded bg-muted/50 border border-border flex items-center justify-center">
+                                  <Package className="w-3 h-3 text-muted-foreground" />
+                                </div>
+                              )}
+                              <span className="text-sm font-medium text-foreground">
+                                {item.name}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <Badge
+                              variant="outline"
+                              className="text-xs border-border text-muted-foreground"
+                            >
+                              {item.category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {item.sku}
                             </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge
-                            variant="outline"
-                            className="text-xs border-border text-muted-foreground"
-                          >
-                            {item.category}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {item.sku}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="font-mono text-sm text-primary">
-                            {formatCurrency(item.price)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right hidden sm:table-cell">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {item.stockQuantity.toString()}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEditClick(item)}
-                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
-                              data-ocid={`admin.edit_button.${idx + 1}`}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteTarget(item)}
-                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                              data-ocid={`admin.delete_button.${idx + 1}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="font-mono text-sm text-primary">
+                              {formatCurrency(item.price)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right hidden sm:table-cell">
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {item.stockQuantity.toString()}
+                            </span>
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            {item.expiryDate ? (
+                              <span
+                                className={`text-xs font-mono ${
+                                  expiryStatus === "expired"
+                                    ? "text-red-600 font-semibold"
+                                    : expiryStatus === "soon"
+                                      ? "text-orange-600 font-semibold"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {item.expiryDate}
+                                {expiryStatus === "expired" && " ⚠️"}
+                                {expiryStatus === "soon" && " ⏰"}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground/40">
+                                —
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEditClick(item)}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                                data-ocid={`admin.edit_button.${idx + 1}`}
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDeleteTarget(item)}
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                data-ocid={`admin.delete_button.${idx + 1}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -1142,8 +1607,12 @@ export default function AdminPage() {
         <ItemForm
           item={editItem}
           onSubmit={handleFormSubmit}
-          onCancel={() => setFormOpen(false)}
+          onCancel={() => {
+            setFormOpen(false);
+            setScannedSku(undefined);
+          }}
           isPending={createItem.isPending || updateItem.isPending}
+          initialSku={scannedSku}
         />
       </Dialog>
 
@@ -1153,6 +1622,12 @@ export default function AdminPage() {
         itemName={deleteTarget?.name ?? ""}
         onConfirm={handleDeleteConfirm}
         isPending={deleteItem.isPending}
+      />
+
+      <QRScannerModal
+        open={qrScannerOpen}
+        onOpenChange={setQrScannerOpen}
+        onScan={handleQrScan}
       />
     </div>
   );

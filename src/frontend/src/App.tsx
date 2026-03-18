@@ -253,6 +253,16 @@ export default function App() {
     };
   }, []);
 
+  // Apply dark mode from localStorage on first render
+  useEffect(() => {
+    const dark = localStorage.getItem("stockvault_dark_mode");
+    if (dark === "true") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
   return (
     <LanguageProvider>
       {showSplash && <SplashScreen fading={fadingOut} />}

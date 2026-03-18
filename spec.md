@@ -1,41 +1,43 @@
 # StockVault
 
 ## Current State
-- Admin Panel has one analytics card (Platform Reach / visitor counter)
-- Inventory tab shows a table with Name, Category, SKU, Price, Stock, Actions
-- Inventory data comes from `useAllItems()` which returns `InventoryItem[]` with fields: id, name, category, sku, price, stockQuantity, createdAt
-- Settings > Help Center tab has a chat-style interface for users to message admin
-- No PDF/Excel export in Admin Panel
-- No inventory summary cards
-- No step-by-step guide in Help Center
+
+StockVault is a full-stack inventory management app on ICP. The backend (Motoko) stores `InventoryItem` records with fields: id, name, category, sku, description, price (purchase price), supplier, stockQuantity, imageId, createdAt, updatedAt. No selling price or expiry date fields exist yet.
+
+The frontend has: Landing Page, Public Inventory List (with voice search), Item Detail, Admin Panel (CRUD + messages + analytics cards: Total Stock Value, Low Stock, Today's Entries + PDF/Excel export), Settings (Account, Privacy, Help Center, Language, Storage, Share App tabs), Certificate page, and Platform Reach visitor counter.
 
 ## Requested Changes (Diff)
 
 ### Add
-- 3 summary cards in Admin Panel (above the tabs, alongside/after Analytics card):
-  1. **Total Stock Value**: sum of (price × stockQuantity) for all items, formatted as ₹ INR
-  2. **Low Stock Items**: count of items where stockQuantity < 10
-  3. **Today's Entries**: count of items where createdAt (nanoseconds) falls on today's local date
-- **Download as PDF** button in Admin Panel inventory tab: exports Name, Category, Quantity, Price using jsPDF or similar
-- **Export to Excel** button in Admin Panel inventory tab: exports same fields as CSV/XLSX using xlsx or papaparse
-- **Step-by-step Help Guide card** in Settings > Help Center section (visible to all users) and in Admin Panel Help tab, explaining:
-  - For Public: how to browse/search inventory, view item details
-  - For Admin: how to add/edit/delete items, manage messages
+- `sellingPrice` (Float) field to `InventoryItem` backend type
+- `expiryDate` (?Text, ISO date string) field to `InventoryItem` backend type
+- Update `createItem` and `updateItem` backend functions to accept `sellingPrice` and `expiryDate`
+- QR code scanner component integration for searching/pre-filling item form by scanning barcodes/QR codes
+- Admin Dashboard: Profit/Loss card = (sellingPrice - price) × stockQuantity, summed across all items
+- Admin Dashboard: "Expiring Soon" summary card listing items expiring within 7 days
+- Admin Dashboard: "Future Roadmap" card with "Upcoming: AI Demand Forecasting" text
+- Inventory table: color-coded rows (red = expired, orange = expiring ≤7 days)
+- Auto-generate Purchase Draft: button in Admin Panel that generates a downloadable list of items with stockQuantity < 10
+- Dark Mode toggle in Settings page, applied app-wide via CSS class on document root
+- Offline-ready "Full offline add": items added while offline are queued in localStorage, auto-synced when internet returns, with a visible sync status indicator
 
 ### Modify
-- AdminPage.tsx: add 3 new summary cards above tabs
-- AdminPage.tsx inventory tab: add PDF + Excel export buttons above the table
-- SettingsPage.tsx HelpCenterSection: add a guide card above the chat interface
-- Admin HelpMessagesTab area: add a similar guide card for admin reference
+- `InventoryItem` type in backend: add `sellingPrice: Float` and `expiryDate: ?Text`
+- ItemForm component: add Selling Price input and Expiry Date picker fields
+- Admin Panel analytics section: add Profit/Loss and Expiring Soon cards alongside existing Total Stock Value, Low Stock, Today's Entries cards
+- Admin Panel inventory table: color-code rows based on expiryDate
+- Inventory List page: show expiry badge on items
 
 ### Remove
 - Nothing removed
 
 ## Implementation Plan
-1. In AdminPage.tsx, compute summary stats from `items` array (already fetched via `useAllItems()`)
-2. Render 3 new stat cards (Total Stock Value ₹, Low Stock count, Today's Entries count) in a responsive grid
-3. Add PDF export using `jsPDF` + `jspdf-autotable` -- fields: Name, Category, Quantity, Price
-4. Add Excel export using `xlsx` library -- same fields, download as .xlsx
-5. Place both export buttons in the inventory tab toolbar (above the table, right-aligned)
-6. In SettingsPage.tsx HelpCenterSection, add a collapsible/static guide card with numbered steps for public users
-7. In AdminPage.tsx Help tab area, add a similar guide card for admin reference
+
+1. **Backend**: Add `sellingPrice: Float` and `expiryDate: ?Text` to `InventoryItem`. Update `createItem` and `updateItem` signatures. Regenerate bindings.
+2. **Select components**: Add `qr-code` component.
+3. **Frontend - ItemForm**: Add Selling Price (number input) and Expiry Date (date picker) fields.
+4. **Frontend - Admin Dashboard**: Add Profit/Loss card, Expiring Soon card, Future Roadmap card.
+5. **Frontend - Admin Inventory Table**: Color-code rows (red/orange) based on expiryDate. Add Purchase Draft download button.
+6. **Frontend - QR Scanner**: Integrate qr-code component in Admin Panel "Add Item" flow to scan and pre-fill name/SKU.
+7. **Frontend - Dark Mode**: Add toggle in Settings. Store preference in localStorage. Apply `dark` class to `<html>` element. Add Tailwind dark: variants to key components.
+8. **Frontend - Offline Add**: Intercept `createItem` calls when offline. Queue in localStorage (`stockvault_offline_queue`). On reconnect, auto-sync queued items. Show sync status badge in Admin Panel.

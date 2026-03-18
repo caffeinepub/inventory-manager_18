@@ -127,6 +127,7 @@ export const translations = {
       tab_language: "App Language",
       tab_storage: "Storage & Data",
       tab_share: "Share App",
+      tab_appearance: "Appearance",
       account: {
         section_title: "Account Settings",
         edit_profile_title: "Edit Profile",
