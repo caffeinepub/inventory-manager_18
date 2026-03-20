@@ -7,11 +7,31 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { CalendarDays, ImageIcon, Loader2, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 import type { InventoryItem } from "../backend";
 import type { ItemFormData } from "../hooks/useQueries";
+
+const GST_RATES_KEY = "sv_gst_rates";
+
+function saveItemGstRate(itemId: string, rate: number) {
+  try {
+    const stored = localStorage.getItem(GST_RATES_KEY);
+    const rates: Record<string, number> = stored ? JSON.parse(stored) : {};
+    rates[itemId] = rate;
+    localStorage.setItem(GST_RATES_KEY, JSON.stringify(rates));
+  } catch {
+    /* ignore */
+  }
+}
 
 interface ItemFormProps {
   item?: InventoryItem;
@@ -41,6 +61,20 @@ export default function ItemForm({
     item?.stockQuantity?.toString() ?? "",
   );
   const [expiryDate, setExpiryDate] = useState(item?.expiryDate ?? "");
+  const [gstRate, setGstRate] = useState<string>(() => {
+    if (item) {
+      try {
+        const stored = localStorage.getItem(GST_RATES_KEY);
+        if (stored) {
+          const rates = JSON.parse(stored) as Record<string, number>;
+          return String(rates[item.id.toString()] ?? 0);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return "0";
+  });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(
     item?.imageId ? item.imageId.getDirectURL() : null,
@@ -90,6 +124,22 @@ export default function ItemForm({
       imageFile,
       expiryDate: expiryDate.trim() || null,
     });
+    // Save GST rate to localStorage after successful submit
+    // We don't know the ID yet for new items, so we use sku as key
+    if (item) {
+      saveItemGstRate(item.id.toString(), Number(gstRate));
+    } else {
+      // Store pending gst rate keyed by sku
+      try {
+        const pending = JSON.parse(
+          localStorage.getItem("sv_gst_pending") || "{}",
+        );
+        pending[sku.trim()] = Number(gstRate);
+        localStorage.setItem("sv_gst_pending", JSON.stringify(pending));
+      } catch {
+        /* ignore */
+      }
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,22 +260,17 @@ export default function ItemForm({
             >
               Purchase Price (₹) *
             </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                ₹
-              </span>
-              <Input
-                id="item-price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="0.00"
-                className="bg-background border-border pl-7 font-mono"
-                data-ocid="item_form.price_input"
-              />
-            </div>
+            <Input
+              id="item-price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              placeholder="0.00"
+              className="bg-background border-border font-mono"
+              data-ocid="item_form.price_input"
+            />
             {errors.price && (
               <p className="text-xs text-destructive">{errors.price}</p>
             )}
@@ -238,26 +283,42 @@ export default function ItemForm({
             >
               Selling Price (₹) *
             </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-                ₹
-              </span>
-              <Input
-                id="item-selling-price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={sellingPrice}
-                onChange={(e) => setSellingPrice(e.target.value)}
-                placeholder="0.00"
-                className="bg-background border-border pl-7 font-mono"
-                data-ocid="item_form.selling_price_input"
-              />
-            </div>
+            <Input
+              id="item-selling-price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={sellingPrice}
+              onChange={(e) => setSellingPrice(e.target.value)}
+              placeholder="0.00"
+              className="bg-background border-border font-mono"
+              data-ocid="item_form.selling_price_input"
+            />
             {errors.sellingPrice && (
               <p className="text-xs text-destructive">{errors.sellingPrice}</p>
             )}
           </div>
+        </div>
+
+        {/* GST Rate */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            GST Rate
+          </Label>
+          <Select value={gstRate} onValueChange={setGstRate}>
+            <SelectTrigger
+              className="bg-background border-border"
+              data-ocid="item_form.gst_rate_select"
+            >
+              <SelectValue placeholder="Select GST Rate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">0% (Exempt)</SelectItem>
+              <SelectItem value="5">5% (Essential goods)</SelectItem>
+              <SelectItem value="12">12% (Standard goods)</SelectItem>
+              <SelectItem value="18">18% (Premium goods)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

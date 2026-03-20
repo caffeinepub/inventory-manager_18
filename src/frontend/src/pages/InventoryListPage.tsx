@@ -13,9 +13,11 @@ import {
   Heart,
   Mic,
   Package,
+  ScanLine,
   Search,
   SlidersHorizontal,
   Star,
+  TrendingDown,
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -36,6 +38,7 @@ const isSpeechSupported = !!SpeechRecognitionAPI;
 
 const LOYALTY_POINTS_KEY = "stockvault_loyalty_points";
 const WISHLIST_KEY = "stockvault_wishlist";
+const PREV_PRICES_KEY = "sv_prev_prices";
 
 function formatCurrency(value: number) {
   return `\u20b9${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -70,7 +73,38 @@ function exportCSV(items: InventoryItem[]) {
   URL.revokeObjectURL(url);
 }
 
-// ── Item Average Rating (per card) ────────────────────────────────────────
+function getPrevPrice(itemId: string): number | null {
+  try {
+    const stored = localStorage.getItem(PREV_PRICES_KEY);
+    if (stored) {
+      const prices = JSON.parse(stored) as Record<string, number>;
+      return prices[itemId] ?? null;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function getSmartTag(item: InventoryItem): string | null {
+  try {
+    const orders = JSON.parse(
+      localStorage.getItem("stockvault_orders") || "[]",
+    ) as { itemId?: string }[];
+    const count = orders.filter((o) => o.itemId === item.id.toString()).length;
+    if (count >= 3) return "best_seller";
+  } catch {
+    /* ignore */
+  }
+  const ms = Number(item.createdAt / 1_000_000n);
+  const ageMs = Date.now() - ms;
+  if (ageMs < 7 * 24 * 60 * 60 * 1000) return "new_arrival";
+  if (Number(item.stockQuantity) < 5 && Number(item.stockQuantity) > 0)
+    return "clearance";
+  return null;
+}
+
+// ── Item Average Rating (per card) ───────────────────────────────────────────────────────
 
 function useItemAvgRating(itemId: bigint) {
   const { data: reviews } = useReviewsByItem(itemId);
@@ -85,7 +119,7 @@ function StarRatingDisplay({
   small,
 }: { rating: number; small?: boolean }) {
   return (
-    <div className={`flex items-center gap-0.5 ${small ? "" : ""}`}>
+    <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
         <Star
           key={s}
@@ -100,7 +134,7 @@ function StarRatingDisplay({
   );
 }
 
-// ── Compare Modal ─────────────────────────────────────────────────────────
+// ── Compare Modal ───────────────────────────────────────────────────────────────
 
 interface CompareModalProps {
   items: InventoryItem[];
@@ -135,7 +169,7 @@ function CompareModal({ items, onClose }: CompareModalProps) {
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div className="flex items-center gap-2">
             <GitCompare className="w-5 h-5 text-primary" />
-            <h2 className="font-display font-700 text-lg text-foreground">
+            <h2 className="font-bold text-lg text-foreground">
               Product Comparison
             </h2>
           </div>
@@ -192,72 +226,31 @@ function CompareModal({ items, onClose }: CompareModalProps) {
                   </td>
                   {items.map((item) => {
                     const val = (item as any)[row.key];
-                    let display = String(val ?? "—");
-                    if (row.key === "price" || row.key === "sellingPrice") {
+                    let display = String(val ?? "\u2014");
+                    if (row.key === "price" || row.key === "sellingPrice")
                       display = formatCurrency(Number(val));
-                    } else if (row.key === "stockQuantity") {
+                    else if (row.key === "stockQuantity")
                       display = `${val} units`;
-                    }
                     return (
                       <td
                         key={item.id.toString()}
                         className="p-3 text-sm text-foreground font-medium"
                       >
-                        {row.key === "stockQuantity" ? (
-                          <span
-                            className={
-                              Number(val) > 0
-                                ? "text-green-600"
-                                : "text-red-500"
-                            }
-                          >
-                            {display}
-                          </span>
-                        ) : (
-                          display
-                        )}
+                        {display}
                       </td>
                     );
                   })}
                 </tr>
               ))}
-              <tr>
-                <td className="p-3 text-xs text-muted-foreground font-medium">
-                  Stock Status
-                </td>
-                {items.map((item) => (
-                  <td key={item.id.toString()} className="p-3">
-                    {Number(item.stockQuantity) > 0 ? (
-                      <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">
-                        In Stock
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">
-                        Out of Stock
-                      </Badge>
-                    )}
-                  </td>
-                ))}
-              </tr>
             </tbody>
           </table>
-        </div>
-        <div className="p-4 border-t border-border flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            data-ocid="inventory.compare.cancel_button"
-          >
-            Close
-          </Button>
         </div>
       </motion.div>
     </motion.div>
   );
 }
 
-// ── Item Card ─────────────────────────────────────────────────────────────
+// ── Item Card ──────────────────────────────────────────────────────────────────────────
 
 function ItemCard({
   item,
@@ -274,6 +267,9 @@ function ItemCard({
   const { t } = useLanguage();
   const ratingData = useItemAvgRating(item.id);
   const inStock = Number(item.stockQuantity) > 0;
+  const prevPrice = getPrevPrice(item.id.toString());
+  const priceDropped = prevPrice !== null && item.price < prevPrice;
+  const smartTag = getSmartTag(item);
 
   return (
     <motion.div
@@ -303,7 +299,7 @@ function ItemCard({
       <Link
         to="/item/$id"
         params={{ id: item.id.toString() }}
-        className={`block bg-card border rounded-md overflow-hidden hover:border-primary/50 hover:shadow-glow transition-all duration-200 ${
+        className={`block bg-card border rounded-xl overflow-hidden hover:border-primary/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 ${
           isComparing ? "border-primary ring-1 ring-primary" : "border-border"
         }`}
         data-ocid={`inventory.item.${index + 1}`}
@@ -321,7 +317,6 @@ function ItemCard({
               <Package className="w-10 h-10 text-muted-foreground/30" />
             </div>
           )}
-          {/* Stock badge */}
           <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
             <Badge
               variant="secondary"
@@ -345,10 +340,39 @@ function ItemCard({
               </Badge>
             )}
           </div>
+          {/* Price Drop Badge */}
+          {priceDropped && (
+            <div className="absolute top-2 left-2 z-10">
+              <Badge
+                className="bg-red-600 text-white border-0 text-[10px] flex items-center gap-0.5"
+                data-ocid={`inventory.price_drop.${index + 1}`}
+              >
+                <TrendingDown className="w-3 h-3" />
+                {t("inventory.price_dropped")}
+              </Badge>
+            </div>
+          )}
+          {/* Smart Tag */}
+          {smartTag && !priceDropped && (
+            <div className="absolute top-2 left-2 z-10">
+              <Badge
+                className={`text-[10px] border-0 ${
+                  smartTag === "best_seller"
+                    ? "bg-orange-500 text-white"
+                    : smartTag === "new_arrival"
+                      ? "bg-blue-500 text-white"
+                      : "bg-red-500 text-white"
+                }`}
+                data-ocid={`inventory.smart_tag.${index + 1}`}
+              >
+                {t(`inventory.${smartTag}`)}
+              </Badge>
+            </div>
+          )}
         </div>
         <div className="p-3">
           <div className="flex items-start justify-between gap-2 mb-1">
-            <h3 className="font-display font-600 text-sm text-foreground truncate group-hover:text-primary transition-colors">
+            <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
               {item.name}
             </h3>
             <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0 group-hover:text-primary transition-colors mt-0.5" />
@@ -363,9 +387,16 @@ function ItemCard({
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="font-mono font-600 text-sm text-primary">
-              {formatCurrency(item.price)}
-            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span className="font-mono font-semibold text-sm text-primary">
+                {formatCurrency(item.price)}
+              </span>
+              {priceDropped && prevPrice && (
+                <span className="font-mono text-xs text-muted-foreground line-through">
+                  {formatCurrency(prevPrice)}
+                </span>
+              )}
+            </div>
             <span className="text-xs text-muted-foreground font-mono">
               {item.stockQuantity.toString()} {t("inventory.units")}
             </span>
@@ -402,7 +433,7 @@ export default function InventoryListPage() {
   const [filterCategory, setFilterCategory] = useState("");
   const [filterMinPrice, setFilterMinPrice] = useState("");
   const [filterMaxPrice, setFilterMaxPrice] = useState("");
-  const [filterMinRating, setFilterMinRating] = useState(0);
+  const [tagFilter, setTagFilter] = useState<string>("all");
   const [compareList, setCompareList] = useState<InventoryItem[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
   const [loyaltyPoints] = useState(() =>
@@ -481,9 +512,21 @@ export default function InventoryListPage() {
         : null;
       const matchMin = minPrice === null || item.price >= minPrice;
       const matchMax = maxPrice === null || item.price <= maxPrice;
-      return matchSearch && matchCategory && matchMin && matchMax;
+      // Tag filter
+      let matchTag = true;
+      if (tagFilter !== "all") {
+        matchTag = getSmartTag(item) === tagFilter;
+      }
+      return matchSearch && matchCategory && matchMin && matchMax && matchTag;
     });
-  }, [items, search, filterCategory, filterMinPrice, filterMaxPrice]);
+  }, [
+    items,
+    search,
+    filterCategory,
+    filterMinPrice,
+    filterMaxPrice,
+    tagFilter,
+  ]);
 
   const hasFilters = !!(filterCategory || filterMinPrice || filterMaxPrice);
 
@@ -493,7 +536,7 @@ export default function InventoryListPage() {
       <div className="mb-6">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="font-display font-700 text-3xl text-foreground tracking-tight">
+            <h1 className="font-bold text-3xl text-foreground tracking-tight">
               {t("inventory.title")}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
@@ -529,6 +572,33 @@ export default function InventoryListPage() {
           </div>
         </div>
 
+        {/* Smart Category Tag Filter */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(["all", "best_seller", "new_arrival", "clearance"] as const).map(
+            (tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setTagFilter(tag)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors border ${
+                  tagFilter === tag
+                    ? tag === "all"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : tag === "best_seller"
+                        ? "bg-orange-500 text-white border-orange-500"
+                        : tag === "new_arrival"
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-red-500 text-white border-red-500"
+                    : "bg-muted text-muted-foreground border-border hover:border-primary/40"
+                }`}
+                data-ocid={`inventory.${tag}_filter.tab`}
+              >
+                {t(`inventory.filter_${tag}`)}
+              </button>
+            ),
+          )}
+        </div>
+
         {/* Search + filter row */}
         <div className="mt-4 flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1 max-w-sm">
@@ -537,28 +607,46 @@ export default function InventoryListPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("inventory.search_placeholder")}
-              className={`pl-9 bg-card border-border${isSpeechSupported ? " pr-9" : ""}`}
+              className="pl-9 bg-card border-border pr-16"
               data-ocid="inventory.search_input"
             />
-            {isSpeechSupported && (
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {isSpeechSupported && (
+                <button
+                  type="button"
+                  onClick={toggleVoiceSearch}
+                  aria-label={
+                    isListening
+                      ? t("inventory.stop_voice")
+                      : t("inventory.start_voice")
+                  }
+                  className={`p-1 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    isListening
+                      ? "text-red-500 animate-pulse"
+                      : "text-muted-foreground hover:text-primary"
+                  }`}
+                  data-ocid="inventory.voice_search_button"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                </button>
+              )}
               <button
                 type="button"
-                onClick={toggleVoiceSearch}
-                aria-label={
-                  isListening
-                    ? t("inventory.stop_voice")
-                    : t("inventory.start_voice")
-                }
-                className={`absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                  isListening
-                    ? "text-red-500 animate-pulse"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-                data-ocid="inventory.voice_search_button"
+                onClick={() => {
+                  import("sonner").then(({ toast }) =>
+                    toast.info(
+                      "Use the Admin panel Barcode Scanner for full scanning functionality.",
+                      { duration: 3000 },
+                    ),
+                  );
+                }}
+                aria-label="Barcode scanner"
+                className="p-1 rounded text-muted-foreground hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                data-ocid="inventory.barcode_scan_button"
               >
-                <Mic className="w-3.5 h-3.5" />
+                <ScanLine className="w-3.5 h-3.5" />
               </button>
-            )}
+            </div>
           </div>
           <Button
             variant={showFilters || hasFilters ? "default" : "outline"}
@@ -601,65 +689,46 @@ export default function InventoryListPage() {
                     id="filter-cat"
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value)}
-                    className="h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-                    data-ocid="inventory.filter.category_select"
+                    className="text-sm rounded-md border border-border bg-background px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                    data-ocid="inventory.filter_category_select"
                   >
-                    <option value="">All categories</option>
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
+                    <option value="">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
                       </option>
                     ))}
                   </select>
                 </div>
+
                 {/* Price range */}
                 <div className="flex flex-col gap-1.5">
                   <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Price Range
+                    Price Range (₹)
                   </span>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
-                      placeholder="Min ₹"
+                      min="0"
+                      placeholder="Min"
                       value={filterMinPrice}
                       onChange={(e) => setFilterMinPrice(e.target.value)}
-                      className="w-24 h-8 text-sm"
-                      data-ocid="inventory.filter.min_price_input"
+                      className="w-20 text-sm"
+                      data-ocid="inventory.filter_min_price_input"
                     />
-                    <span className="text-muted-foreground text-xs">–</span>
+                    <span className="text-muted-foreground text-xs">—</span>
                     <Input
                       type="number"
-                      placeholder="Max ₹"
+                      min="0"
+                      placeholder="Max"
                       value={filterMaxPrice}
                       onChange={(e) => setFilterMaxPrice(e.target.value)}
-                      className="w-24 h-8 text-sm"
-                      data-ocid="inventory.filter.max_price_input"
+                      className="w-20 text-sm"
+                      data-ocid="inventory.filter_max_price_input"
                     />
                   </div>
                 </div>
-                {/* Rating */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                    Min Rating
-                  </span>
-                  <div className="flex items-center gap-1">
-                    {[0, 1, 2, 3, 4, 5].map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setFilterMinRating(r)}
-                        className={`text-xs px-2 py-1 rounded border transition-colors ${
-                          filterMinRating === r
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "border-border text-muted-foreground hover:border-primary"
-                        }`}
-                        data-ocid={`inventory.filter.rating_${r}`}
-                      >
-                        {r === 0 ? "All" : `${r}★`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+
                 {hasFilters && (
                   <div className="flex items-end">
                     <Button
@@ -669,10 +738,9 @@ export default function InventoryListPage() {
                         setFilterCategory("");
                         setFilterMinPrice("");
                         setFilterMaxPrice("");
-                        setFilterMinRating(0);
                       }}
                       className="text-muted-foreground h-8"
-                      data-ocid="inventory.filter.clear_button"
+                      data-ocid="inventory.filter_clear_button"
                     >
                       <X className="w-3.5 h-3.5 mr-1" /> Clear
                     </Button>
@@ -684,17 +752,20 @@ export default function InventoryListPage() {
         </AnimatePresence>
       </div>
 
-      {/* Content */}
+      {/* Error */}
       {isError && (
         <div
-          className="flex flex-col items-center justify-center py-20 text-muted-foreground"
+          className="flex flex-col items-center justify-center py-20 text-center"
           data-ocid="inventory.error_state"
         >
-          <AlertCircle className="w-8 h-8 mb-3 text-destructive" />
-          <p>{t("inventory.failed_to_load")}</p>
+          <AlertCircle className="w-10 h-10 text-destructive mb-3" />
+          <p className="text-muted-foreground text-sm">
+            {t("inventory.failed_to_load")}
+          </p>
         </div>
       )}
 
+      {/* Loading */}
       {isLoading && (
         <div
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
@@ -706,27 +777,27 @@ export default function InventoryListPage() {
         </div>
       )}
 
+      {/* Empty */}
       {!isLoading && !isError && filtered.length === 0 && (
         <div
-          className="flex flex-col items-center justify-center py-24 text-center"
+          className="flex flex-col items-center justify-center py-20 text-center border border-dashed border-border rounded-md"
           data-ocid="inventory.empty_state"
         >
-          <div className="w-16 h-16 rounded-full bg-muted/50 border border-border flex items-center justify-center mb-4">
-            <Package className="w-7 h-7 text-muted-foreground" />
-          </div>
-          <h3 className="font-display font-600 text-base text-foreground mb-1">
-            {search
+          <Package className="w-10 h-10 text-muted-foreground/30 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            {search || hasFilters
               ? t("inventory.no_items_match")
               : t("inventory.no_items_yet")}
-          </h3>
-          <p className="text-sm text-muted-foreground max-w-xs">
-            {search
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {search || hasFilters
               ? t("inventory.try_different_search")
               : t("inventory.add_from_admin")}
           </p>
         </div>
       )}
 
+      {/* Grid */}
       {!isLoading && !isError && filtered.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {filtered.map((item, idx) => (
@@ -800,7 +871,6 @@ export default function InventoryListPage() {
         )}
       </AnimatePresence>
 
-      {/* Compare Modal */}
       <AnimatePresence>
         {compareOpen && compareList.length >= 2 && (
           <CompareModal

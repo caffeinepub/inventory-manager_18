@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { Award, BarChart2, Download, Settings, Shield } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import HelpBot from "./components/HelpBot";
 import SplashScreen from "./components/SplashScreen";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { usePwaInstall } from "./hooks/use-pwa-install";
@@ -24,7 +25,10 @@ import CertificatePage from "./pages/CertificatePage";
 import InventoryListPage from "./pages/InventoryListPage";
 import ItemDetailPage from "./pages/ItemDetailPage";
 import LandingPage from "./pages/LandingPage";
+import MyAccountPage from "./pages/MyAccountPage";
 import SettingsPage from "./pages/SettingsPage";
+import StaffLoginPage from "./pages/StaffLoginPage";
+import SuppliersPage from "./pages/SuppliersPage";
 
 function NavAdminLink() {
   const { identity } = useInternetIdentity();
@@ -79,7 +83,6 @@ function LangToggle() {
 
 function PlatformReachCounter() {
   const { data: count } = useVisitCount();
-
   return (
     <div
       className="flex items-center justify-center gap-2 text-xs text-muted-foreground mt-3"
@@ -102,14 +105,12 @@ function PlatformReachCounter() {
 function AppVisitRecorder() {
   const recordVisit = useRecordVisit();
   const recorded = useRef(false);
-
   useEffect(() => {
     if (!recorded.current) {
       recorded.current = true;
       recordVisit.mutate();
     }
   }, [recordVisit.mutate]);
-
   return null;
 }
 
@@ -133,7 +134,7 @@ function RootLayout() {
               className="h-8 w-auto object-contain"
             />
           </Link>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-1 flex-wrap">
             {isInstallable && (
               <Button
                 variant="outline"
@@ -149,6 +150,16 @@ function RootLayout() {
             <Button variant="ghost" size="sm" asChild>
               <Link to="/inventory" data-ocid="nav.inventory_link">
                 {t("nav.browse")}
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/suppliers" data-ocid="nav.suppliers_link">
+                {t("nav.suppliers")}
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/my-account" data-ocid="nav.my_account_link">
+                {t("nav.my_account")}
               </Link>
             </Button>
             <NavAdminLink />
@@ -188,7 +199,7 @@ function RootLayout() {
           <p className="text-xs text-muted-foreground mt-1 font-medium">
             {t("footer.trust_badge")}
           </p>
-          <div className="mt-3">
+          <div className="mt-3 flex items-center justify-center gap-2 flex-wrap">
             <Button
               asChild
               variant="outline"
@@ -197,69 +208,108 @@ function RootLayout() {
               className="border-yellow-500/50 text-yellow-700 hover:bg-yellow-50 hover:border-yellow-500 hover:text-yellow-800 gap-1.5 text-xs"
             >
               <Link to="/certificate">
-                <Award className="w-3.5 h-3.5" />
-                View Certificate
+                <Award className="w-3.5 h-3.5" /> View Certificate
               </Link>
             </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              data-ocid="footer.suppliers_button"
+            >
+              <Link to="/suppliers">Suppliers</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              data-ocid="footer.staff_button"
+            >
+              <Link to="/staff-login">Staff Login</Link>
+            </Button>
           </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            &copy; {new Date().getFullYear()}. Built with love using{" "}
+            <a
+              href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== "undefined" ? window.location.hostname : "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-primary transition-colors"
+            >
+              caffeine.ai
+            </a>
+          </p>
         </div>
       </footer>
 
+      <HelpBot />
       <Toaster richColors position="top-right" />
     </div>
   );
 }
 
-const rootRoute = createRootRoute({
-  component: RootLayout,
-});
-
+const rootRoute = createRootRoute({ component: RootLayout });
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   component: LandingPage,
 });
-
 const inventoryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/inventory",
   component: InventoryListPage,
 });
-
 const itemDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/item/$id",
   component: ItemDetailPage,
 });
-
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
   component: AdminPage,
 });
-
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
   component: SettingsPage,
 });
-
 const certificateRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/certificate",
   component: CertificatePage,
 });
+const suppliersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/suppliers",
+  component: SuppliersPage,
+});
+const myAccountRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/my-account",
+  component: MyAccountPage,
+});
+const staffLoginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/staff-login",
+  component: StaffLoginPage,
+});
 
-const routeTree = rootRoute.addChildren([
-  indexRoute,
-  inventoryRoute,
-  itemDetailRoute,
-  adminRoute,
-  settingsRoute,
-  certificateRoute,
-]);
-
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree: rootRoute.addChildren([
+    indexRoute,
+    inventoryRoute,
+    itemDetailRoute,
+    adminRoute,
+    settingsRoute,
+    certificateRoute,
+    suppliersRoute,
+    myAccountRoute,
+    staffLoginRoute,
+  ]),
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
@@ -272,28 +322,18 @@ export default function App() {
   const [fadingOut, setFadingOut] = useState(false);
 
   useEffect(() => {
-    const fadeTimer = setTimeout(() => {
-      setFadingOut(true);
-    }, 2000);
-
-    const hideTimer = setTimeout(() => {
-      setShowSplash(false);
-    }, 2600);
-
+    const fadeTimer = setTimeout(() => setFadingOut(true), 2000);
+    const hideTimer = setTimeout(() => setShowSplash(false), 2600);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(hideTimer);
     };
   }, []);
 
-  // Apply dark mode from localStorage on first render
   useEffect(() => {
     const dark = localStorage.getItem("stockvault_dark_mode");
-    if (dark === "true") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    if (dark === "true") document.documentElement.classList.add("dark");
+    else document.documentElement.classList.remove("dark");
   }, []);
 
   return (

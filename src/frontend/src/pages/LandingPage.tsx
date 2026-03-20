@@ -133,7 +133,7 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col">
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-primary/10 via-background to-background pt-20 pb-28 px-4">
+      <section className="relative overflow-hidden bg-gradient-to-br from-sky-100 via-blue-50 to-white dark:from-primary/20 dark:via-background dark:to-background pt-20 pb-28 px-4">
         <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-20 right-0 w-72 h-72 rounded-full bg-primary/8 blur-2xl" />
 
@@ -192,6 +192,31 @@ export default function LandingPage() {
             </Button>
           </motion.div>
         </motion.div>
+      </section>
+
+      {/* ── Trust Strip ─────────────────────────────────────────── */}
+      <section className="py-5 px-4 bg-navy-900 bg-gradient-to-r from-blue-900 via-blue-800 to-blue-900">
+        <div className="container max-w-5xl mx-auto">
+          <p className="text-center text-blue-200 text-xs font-semibold uppercase tracking-widest mb-3">
+            Trusted by Local Businesses
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8">
+            {[
+              "✓ 500+ Items Managed",
+              "✓ 100% Secure & Verified",
+              "✓ Bilingual Support",
+              "✓ Offline Ready",
+              "✓ GST Compliant",
+            ].map((item) => (
+              <span
+                key={item}
+                className="text-white text-sm font-medium whitespace-nowrap flex items-center gap-1"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── Features ─────────────────────────────────────────── */}

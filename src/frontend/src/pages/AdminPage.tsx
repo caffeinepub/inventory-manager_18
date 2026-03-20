@@ -79,6 +79,15 @@ import type {
 } from "../hooks/useQueries";
 import { useQRScanner } from "../qr-code/useQRScanner";
 import { getOfflineQueue } from "../utils/offlineQueue";
+import {
+  AdminExpensesTab,
+  AdminHistoryTab,
+  AdminSalesTab,
+  AdminStaffTab,
+  AdminSuppliersTab,
+  BulkUploadDialog,
+  addInvLogEntry,
+} from "./AdminExtraTabs";
 
 const HEADER_SKELETON_KEYS = ["hs-a", "hs-b"];
 const ROW_SKELETON_KEYS = ["rs-a", "rs-b", "rs-c", "rs-d", "rs-e", "rs-f"];
@@ -1317,6 +1326,7 @@ export default function AdminPage() {
   );
   const [activeTab, setActiveTab] = useState("inventory");
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [scannedSku, setScannedSku] = useState<string | undefined>(undefined);
 
   const handleAddClick = () => {
@@ -1365,9 +1375,19 @@ export default function AdminPage() {
       if (editItem) {
         await updateItem.mutateAsync({ id: editItem.id, data });
         toast.success(t("admin.item_updated"));
+        addInvLogEntry(
+          data.name,
+          "Updated",
+          identity?.getPrincipal().toString() ?? "admin",
+        );
       } else {
         await createItem.mutateAsync(data);
         toast.success(t("admin.item_created"));
+        addInvLogEntry(
+          data.name,
+          "Created",
+          identity?.getPrincipal().toString() ?? "admin",
+        );
       }
       setFormOpen(false);
       setEditItem(undefined);
@@ -1382,6 +1402,11 @@ export default function AdminPage() {
     try {
       await deleteItem.mutateAsync(deleteTarget.id);
       toast.success(t("admin.item_deleted"));
+      addInvLogEntry(
+        deleteTarget?.name ?? "item",
+        "Deleted",
+        identity?.getPrincipal().toString() ?? "admin",
+      );
       setDeleteTarget(undefined);
     } catch {
       toast.error(t("admin.item_delete_error"));
@@ -1551,6 +1576,14 @@ export default function AdminPage() {
               <Button
                 variant="outline"
                 size="sm"
+                onClick={() => setBulkUploadOpen(true)}
+                data-ocid="admin.bulk_upload_button"
+              >
+                Upload CSV
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setQrScannerOpen(true)}
                 className="border-primary text-primary hover:bg-primary/5"
                 data-ocid="admin.scan_barcode_button"
@@ -1612,6 +1645,21 @@ export default function AdminPage() {
                     {ordersData.filter((o) => o.status === "Pending").length}
                   </span>
                 )}
+            </TabsTrigger>
+            <TabsTrigger value="suppliers" data-ocid="admin.suppliers_tab">
+              {t("admin.tab_suppliers")}
+            </TabsTrigger>
+            <TabsTrigger value="expenses" data-ocid="admin.expenses_tab">
+              {t("admin.tab_expenses")}
+            </TabsTrigger>
+            <TabsTrigger value="sales" data-ocid="admin.sales_tab">
+              {t("admin.tab_sales")}
+            </TabsTrigger>
+            <TabsTrigger value="historylog" data-ocid="admin.history_tab">
+              {t("admin.tab_history")}
+            </TabsTrigger>
+            <TabsTrigger value="staff" data-ocid="admin.staff_tab">
+              {t("admin.tab_staff")}
             </TabsTrigger>
           </TabsList>
 
@@ -1778,6 +1826,21 @@ export default function AdminPage() {
           <TabsContent value="orders">
             <OrdersTab />
           </TabsContent>
+          <TabsContent value="suppliers">
+            <AdminSuppliersTab />
+          </TabsContent>
+          <TabsContent value="expenses">
+            <AdminExpensesTab orders={ordersData} />
+          </TabsContent>
+          <TabsContent value="sales">
+            <AdminSalesTab orders={ordersData} />
+          </TabsContent>
+          <TabsContent value="historylog">
+            <AdminHistoryTab />
+          </TabsContent>
+          <TabsContent value="staff">
+            <AdminStaffTab />
+          </TabsContent>
         </Tabs>
       </motion.div>
 
@@ -1806,6 +1869,11 @@ export default function AdminPage() {
         open={qrScannerOpen}
         onOpenChange={setQrScannerOpen}
         onScan={handleQrScan}
+      />
+
+      <BulkUploadDialog
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
       />
     </div>
   );

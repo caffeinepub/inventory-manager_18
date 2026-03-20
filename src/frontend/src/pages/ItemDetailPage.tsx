@@ -17,34 +17,95 @@ import {
   AlertCircle,
   Archive,
   ArrowLeft,
+  Copy,
   DollarSign,
+  Facebook,
   Hash,
   Heart,
   Loader2,
   MessageCircle,
   Package,
+  QrCode,
+  Share2,
   ShoppingCart,
   Star,
   Tag,
+  TrendingDown,
   Truck,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
+import { SiWhatsapp } from "react-icons/si";
 import { toast } from "sonner";
 import { useLanguage } from "../context/LanguageContext";
 import {
   useItem,
   usePlaceOrder,
   useReviewsByItem,
+  useSubmitContactMessage,
   useSubmitReview,
 } from "../hooks/useQueries";
 
 const LOYALTY_KEY = "stockvault_loyalty_points";
 const WISHLIST_KEY = "stockvault_wishlist";
 const WA_NUMBER = "919984606371";
+const GST_RATES_KEY = "sv_gst_rates";
+const PREV_PRICES_KEY = "sv_prev_prices";
+
+function getItemGstRate(itemId: string): number {
+  try {
+    const stored = localStorage.getItem(GST_RATES_KEY);
+    if (stored) {
+      const rates = JSON.parse(stored) as Record<string, number>;
+      return rates[itemId] ?? 0;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 0;
+}
+
+function getPrevPrice(itemId: string): number | null {
+  try {
+    const stored = localStorage.getItem(PREV_PRICES_KEY);
+    if (stored) {
+      const prices = JSON.parse(stored) as Record<string, number>;
+      return prices[itemId] ?? null;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function getSmartTags(item: {
+  id: bigint;
+  stockQuantity: bigint;
+  createdAt: bigint;
+}): string[] {
+  const tags: string[] = [];
+  // Best seller: 3+ orders
+  try {
+    const orders = JSON.parse(
+      localStorage.getItem("stockvault_orders") || "[]",
+    ) as { itemId?: string }[];
+    const count = orders.filter((o) => o.itemId === item.id.toString()).length;
+    if (count >= 3) tags.push("best_seller");
+  } catch {
+    /* ignore */
+  }
+  // New arrival: within 7 days
+  const ms = Number(item.createdAt / 1_000_000n);
+  const ageMs = Date.now() - ms;
+  if (ageMs < 7 * 24 * 60 * 60 * 1000) tags.push("new_arrival");
+  // Clearance: stock < 5
+  if (Number(item.stockQuantity) < 5 && Number(item.stockQuantity) > 0)
+    tags.push("clearance");
+  return tags;
+}
 
 function formatCurrency(value: number) {
-  return `\u20b9${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 }
 
 function formatDateTime(nanoseconds: bigint): string {
@@ -130,6 +191,226 @@ function StarRatingDisplay({ rating }: { rating: number }) {
   );
 }
 
+// ── GST Breakdown ──────────────────────────────────────────────────────────
+
+function GstBreakdown({
+  basePrice,
+  gstRate,
+}: { basePrice: number; gstRate: number }) {
+  const { t } = useLanguage();
+  if (gstRate === 0) return null;
+  const gstAmount = (basePrice * gstRate) / 100;
+  const total = basePrice + gstAmount;
+  return (
+    <div className="bg-sky-50 border border-sky-200 rounded-lg p-3 mt-2">
+      <p className="text-xs font-semibold text-sky-700 mb-2 uppercase tracking-wide">
+        GST Breakdown
+      </p>
+      <div className="space-y-1 text-xs">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">
+            {t("item_detail.base_price")}
+          </span>
+          <span className="font-mono font-medium">
+            {formatCurrency(basePrice)}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">
+            {t("item_detail.gst_rate")} ({gstRate}%)
+          </span>
+          <span className="font-mono text-orange-600">
+            +{formatCurrency(gstAmount)}
+          </span>
+        </div>
+        <Separator className="my-1" />
+        <div className="flex justify-between font-semibold">
+          <span className="text-foreground">
+            {t("item_detail.total_with_gst")}
+          </span>
+          <span className="font-mono text-primary">
+            {formatCurrency(total)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── QR Code Dialog ─────────────────────────────────────────────────────────
+
+function QrCodeDialog({
+  open,
+  onOpenChange,
+  itemId,
+  itemName,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  itemId: string;
+  itemName: string;
+}) {
+  const { t } = useLanguage();
+  const url = `${window.location.origin}/item/${itemId}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+
+  const handleDownload = async () => {
+    try {
+      const res = await fetch(qrUrl);
+      const blob = await res.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `qr-${itemName.replace(/\s+/g, "-")}.png`;
+      link.click();
+    } catch {
+      toast.error("Failed to download QR code.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm" data-ocid="item_detail.qr.dialog">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-primary" />
+            {t("item_detail.qr_code")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-2">
+          <img
+            src={qrUrl}
+            alt={`QR code for ${itemName}`}
+            className="w-48 h-48 rounded-lg border border-border"
+          />
+          <p className="text-xs text-muted-foreground text-center break-all">
+            {url}
+          </p>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            data-ocid="item_detail.qr.close_button"
+          >
+            Close
+          </Button>
+          <Button
+            onClick={handleDownload}
+            className="bg-primary text-primary-foreground"
+            data-ocid="item_detail.qr.download_qr_button"
+          >
+            {t("item_detail.download_qr")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Inquiry Dialog ─────────────────────────────────────────────────────────
+
+function InquiryDialog({
+  open,
+  onOpenChange,
+  itemName,
+}: { open: boolean; onOpenChange: (v: boolean) => void; itemName: string }) {
+  const { t } = useLanguage();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState(
+    `Hi, I'm interested in ${itemName}. Can you provide more details?`,
+  );
+  const submitMsg = useSubmitContactMessage();
+
+  const handleSend = async () => {
+    if (!name.trim() || !email.trim() || !message.trim()) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    try {
+      await submitMsg.mutateAsync({ name, email, message });
+      toast.success(t("item_detail.inquiry_sent"));
+      onOpenChange(false);
+      setName("");
+      setEmail("");
+    } catch {
+      toast.error("Failed to send inquiry.");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="max-w-sm"
+        data-ocid="item_detail.inquiry.dialog"
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MessageCircle className="w-4 h-4 text-primary" />
+            {t("item_detail.inquiry_dialog_title")}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">
+              {t("item_detail.inquiry_name")} *
+            </Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1"
+              data-ocid="item_detail.inquiry.name_input"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">
+              {t("item_detail.inquiry_email")} *
+            </Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1"
+              data-ocid="item_detail.inquiry.email_input"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">
+              {t("item_detail.inquiry_message")}
+            </Label>
+            <Textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="mt-1 h-20"
+              data-ocid="item_detail.inquiry.message_textarea"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            data-ocid="item_detail.inquiry.cancel_button"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSend}
+            disabled={submitMsg.isPending}
+            className="bg-primary text-primary-foreground"
+            data-ocid="item_detail.inquiry.submit_button"
+          >
+            {submitMsg.isPending && (
+              <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+            )}
+            {t("item_detail.inquiry_send")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ── Order Modal ────────────────────────────────────────────────────────────
 
 interface OrderModalProps {
@@ -138,6 +419,7 @@ interface OrderModalProps {
   itemId: bigint;
   itemName: string;
   itemPrice: number;
+  gstRate: number;
 }
 
 async function generateInvoicePDF(order: {
@@ -148,9 +430,11 @@ async function generateInvoicePDF(order: {
   itemName: string;
   quantity: number;
   unitPrice: number;
+  gstRate: number;
+  gstAmount: number;
   totalPrice: number;
+  loyaltyPoints: number;
 }) {
-  // Load jsPDF via CDN
   if (!(window as any).jspdf) {
     await new Promise<void>((resolve, reject) => {
       const s = document.createElement("script");
@@ -165,22 +449,19 @@ async function generateInvoicePDF(order: {
     (window as any).jspdf?.jsPDF || (window as any).jsPDF;
   const doc = new jsPDFConstructor();
 
-  // Header
   doc.setFontSize(22);
   doc.setTextColor(14, 30, 80);
   doc.text("StockVault", 14, 20);
   doc.setFontSize(10);
   doc.setTextColor(100);
-  doc.text("Invoice / Order Receipt", 14, 28);
+  doc.text("E-Invoice / Order Receipt", 14, 28);
   doc.line(14, 32, 196, 32);
 
-  // Order info
   doc.setFontSize(11);
   doc.setTextColor(0);
   doc.text(`Order ID: #${order.orderId}`, 14, 42);
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 50);
 
-  // Customer
   doc.setFontSize(10);
   doc.setTextColor(100);
   doc.text("Customer Details", 14, 62);
@@ -189,7 +470,6 @@ async function generateInvoicePDF(order: {
   doc.text(`Phone: ${order.customerPhone}`, 14, 78);
   doc.text(`Address: ${order.customerAddress}`, 14, 86);
 
-  // Item
   doc.setTextColor(100);
   doc.text("Order Summary", 14, 100);
   doc.line(14, 104, 196, 104);
@@ -198,15 +478,45 @@ async function generateInvoicePDF(order: {
   doc.text(`Qty: ${order.quantity}`, 120, 112);
   doc.text(`Unit: \u20b9${order.unitPrice.toFixed(2)}`, 150, 112);
   doc.line(14, 118, 196, 118);
+
+  let y = 126;
+  doc.setFontSize(10);
+  doc.text(
+    `Base Price: \u20b9${(order.unitPrice * order.quantity).toFixed(2)}`,
+    14,
+    y,
+  );
+  y += 8;
+  if (order.gstRate > 0) {
+    doc.setTextColor(180, 100, 0);
+    doc.text(
+      `GST (${order.gstRate}%): +\u20b9${order.gstAmount.toFixed(2)}`,
+      14,
+      y,
+    );
+    y += 8;
+    doc.setTextColor(0);
+  }
   doc.setFontSize(13);
   doc.setTextColor(14, 30, 80);
-  doc.text(`Total: \u20b9${order.totalPrice.toFixed(2)}`, 14, 128);
+  doc.text(`Total: \u20b9${order.totalPrice.toFixed(2)}`, 14, y + 2);
+  y += 12;
 
-  // Footer
+  if (order.loyaltyPoints > 0) {
+    doc.setFontSize(9);
+    doc.setTextColor(0, 150, 0);
+    doc.text(
+      `\u2b50 Loyalty Points Earned: +${order.loyaltyPoints} pts`,
+      14,
+      y,
+    );
+    y += 8;
+  }
+
   doc.setFontSize(9);
   doc.setTextColor(150);
   doc.text(
-    "Thank you for your order! StockVault - \u20b9100% Secure & Verified",
+    "Thank you for your order! StockVault \u2014 \ud83d\udee1\ufe0f 100% Secure & Verified",
     14,
     280,
   );
@@ -220,6 +530,7 @@ function OrderModal({
   itemId,
   itemName,
   itemPrice,
+  gstRate,
 }: OrderModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -227,7 +538,9 @@ function OrderModal({
   const [quantity, setQuantity] = useState(1);
   const placeOrder = usePlaceOrder();
 
-  const total = itemPrice * quantity;
+  const baseTotal = itemPrice * quantity;
+  const gstAmount = (baseTotal * gstRate) / 100;
+  const total = baseTotal + gstAmount;
 
   const handleSubmit = async () => {
     if (!name.trim() || !phone.trim() || !address.trim()) {
@@ -252,7 +565,28 @@ function OrderModal({
         const existing = Number(localStorage.getItem(LOYALTY_KEY) || "0");
         localStorage.setItem(LOYALTY_KEY, String(existing + pts));
       }
-      // Generate invoice
+      // Save order to localStorage
+      try {
+        const orders = JSON.parse(
+          localStorage.getItem("stockvault_orders") || "[]",
+        );
+        orders.unshift({
+          orderId: orderId.toString(),
+          itemName,
+          itemId: itemId.toString(),
+          quantity,
+          totalPrice: total,
+          date: new Date().toLocaleDateString(),
+          status: "Pending",
+        });
+        localStorage.setItem(
+          "stockvault_orders",
+          JSON.stringify(orders.slice(0, 50)),
+        );
+      } catch {
+        /* ignore */
+      }
+
       try {
         await generateInvoicePDF({
           orderId: orderId.toString(),
@@ -262,7 +596,10 @@ function OrderModal({
           itemName,
           quantity,
           unitPrice: itemPrice,
+          gstRate,
+          gstAmount,
           totalPrice: total,
+          loyaltyPoints: pts,
         });
       } catch {
         // Invoice generation is best-effort
@@ -294,6 +631,9 @@ function OrderModal({
             <span className="font-medium text-foreground">{itemName}</span>
             <span className="text-muted-foreground ml-2">
               {formatCurrency(itemPrice)} / unit
+              {gstRate > 0 && (
+                <span className="ml-1 text-orange-600">(+{gstRate}% GST)</span>
+              )}
             </span>
           </div>
           <div className="grid gap-3">
@@ -365,13 +705,26 @@ function OrderModal({
               />
             </div>
           </div>
-          <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
-            <span className="text-sm text-muted-foreground">
-              Estimated Total
-            </span>
-            <span className="font-mono font-700 text-lg text-primary">
-              {formatCurrency(total)}
-            </span>
+          <div className="p-3 bg-primary/5 rounded-lg border border-primary/20 space-y-1">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>
+                Base ({formatCurrency(itemPrice)} × {quantity})
+              </span>
+              <span className="font-mono">{formatCurrency(baseTotal)}</span>
+            </div>
+            {gstRate > 0 && (
+              <div className="flex justify-between text-xs text-orange-600">
+                <span>GST ({gstRate}%)</span>
+                <span className="font-mono">+{formatCurrency(gstAmount)}</span>
+              </div>
+            )}
+            <Separator />
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Total</span>
+              <span className="font-mono font-bold text-lg text-primary">
+                {formatCurrency(total)}
+              </span>
+            </div>
           </div>
         </div>
         <DialogFooter>
@@ -465,7 +818,6 @@ function ReviewsSection({ itemId }: { itemId: bigint }) {
         )}
       </div>
 
-      {/* Submit form */}
       <div
         className="bg-card border border-border rounded-lg p-5 mb-6"
         data-ocid="item_detail.review.form"
@@ -523,7 +875,6 @@ function ReviewsSection({ itemId }: { itemId: bigint }) {
         </div>
       </div>
 
-      {/* Review list */}
       {isLoading && (
         <div
           className="space-y-3"
@@ -584,6 +935,9 @@ export default function ItemDetailPage() {
   const itemId = BigInt(id);
   const { data: item, isLoading, isError } = useItem(itemId);
   const [orderOpen, setOrderOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [wishlisted, setWishlisted] = useState(() => {
     try {
       const list = JSON.parse(localStorage.getItem(WISHLIST_KEY) || "[]");
@@ -606,6 +960,17 @@ export default function ItemDetailPage() {
       }
     } catch {
       toast.error("Could not update wishlist.");
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success(t("item_detail.copied"));
+    } catch {
+      toast.error("Could not copy link.");
     }
   };
 
@@ -649,7 +1014,12 @@ export default function ItemDetailPage() {
 
   const imageUrl = item.imageId ? item.imageId.getDirectURL() : null;
   const inStock = Number(item.stockQuantity) > 0;
-  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(`Hi, I'm interested in ${item.name}`)} `;
+  const waLink = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(`Hi, I'm interested in ${item.name}: ${window.location.href}`)} `;
+  const fbLink = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`;
+  const gstRate = getItemGstRate(id);
+  const prevPrice = getPrevPrice(id);
+  const priceDropped = prevPrice !== null && item.price < prevPrice;
+  const smartTags = getSmartTags(item);
 
   return (
     <div className="container max-w-4xl mx-auto px-4 py-8">
@@ -665,6 +1035,17 @@ export default function ItemDetailPage() {
           </Link>
         </Button>
 
+        {/* Price Drop Banner */}
+        {priceDropped && (
+          <div className="mb-4 flex items-center gap-2 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg">
+            <TrendingDown className="w-4 h-4 text-red-600 shrink-0" />
+            <span className="text-sm font-semibold text-red-700">
+              {t("inventory.price_dropped")} {t("item_detail.original_price")}:{" "}
+              {formatCurrency(prevPrice)}
+            </span>
+          </div>
+        )}
+
         <div className="grid md:grid-cols-[2fr_3fr] gap-8">
           {/* Image */}
           <div className="aspect-square bg-muted/30 rounded-md overflow-hidden border border-border relative">
@@ -679,8 +1060,7 @@ export default function ItemDetailPage() {
                 <Package className="w-16 h-16 text-muted-foreground/20" />
               </div>
             )}
-            {/* Stock badge on image */}
-            <div className="absolute top-3 right-3">
+            <div className="absolute top-3 right-3 flex flex-col gap-1.5">
               {inStock ? (
                 <Badge
                   className="bg-green-500 text-white border-0 shadow"
@@ -696,28 +1076,59 @@ export default function ItemDetailPage() {
                   Out of Stock
                 </Badge>
               )}
+              {priceDropped && (
+                <Badge className="bg-red-600 text-white border-0 shadow text-[10px]">
+                  📉 {t("inventory.price_dropped")}
+                </Badge>
+              )}
             </div>
           </div>
 
           {/* Info */}
           <div>
-            <div className="mb-4">
-              <Badge
-                variant="outline"
-                className="text-xs border-border text-muted-foreground mb-2"
-              >
-                {item.category}
-              </Badge>
+            <div className="mb-3">
+              <div className="flex flex-wrap gap-1 mb-2">
+                <Badge
+                  variant="outline"
+                  className="text-xs border-border text-muted-foreground"
+                >
+                  {item.category}
+                </Badge>
+                {smartTags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    className={`text-[10px] border-0 ${
+                      tag === "best_seller"
+                        ? "bg-orange-100 text-orange-700"
+                        : tag === "new_arrival"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {t(`inventory.${tag}`)}
+                  </Badge>
+                ))}
+              </div>
               <h1 className="font-display font-700 text-2xl text-foreground tracking-tight">
                 {item.name}
               </h1>
-              <p className="text-2xl font-mono font-600 text-primary mt-1">
-                {formatCurrency(item.price)}
-              </p>
+              <div className="flex items-baseline gap-2 mt-1">
+                <p className="text-2xl font-mono font-600 text-primary">
+                  {formatCurrency(item.price)}
+                </p>
+                {priceDropped && (
+                  <p className="text-sm font-mono text-muted-foreground line-through">
+                    {formatCurrency(prevPrice)}
+                  </p>
+                )}
+              </div>
             </div>
 
+            {/* GST Breakdown */}
+            <GstBreakdown basePrice={item.price} gstRate={gstRate} />
+
             {item.description && (
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              <p className="text-sm text-muted-foreground leading-relaxed my-4">
                 {item.description}
               </p>
             )}
@@ -754,8 +1165,68 @@ export default function ItemDetailPage() {
               >
                 <a href={waLink} target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="w-4 h-4 mr-2" />
-                  Chat on WhatsApp
+                  WhatsApp
                 </a>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setInquiryOpen(true)}
+                data-ocid="item_detail.inquiry_open_modal_button"
+              >
+                <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
+                {t("item_detail.send_inquiry")}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setQrOpen(true)}
+                data-ocid="item_detail.qr_open_modal_button"
+              >
+                <QrCode className="w-3.5 h-3.5 mr-1.5" />
+                {t("item_detail.view_qr")}
+              </Button>
+            </div>
+
+            {/* Social Sharing */}
+            <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-muted/30 rounded-lg">
+              <Share2 className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">
+                {t("item_detail.share")}:
+              </span>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2.5 bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366] hover:text-white"
+                data-ocid="item_detail.whatsapp_share_button"
+              >
+                <a href={waLink} target="_blank" rel="noopener noreferrer">
+                  <SiWhatsapp className="w-3 h-3 mr-1" />
+                  WhatsApp
+                </a>
+              </Button>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2.5 bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white"
+                data-ocid="item_detail.facebook_share_button"
+              >
+                <a href={fbLink} target="_blank" rel="noopener noreferrer">
+                  <Facebook className="w-3 h-3 mr-1" />
+                  Facebook
+                </a>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2.5"
+                onClick={handleCopyLink}
+                data-ocid="item_detail.copy_link_button"
+              >
+                <Copy className="w-3 h-3 mr-1" />
+                {copied ? t("item_detail.copied") : t("item_detail.copy_link")}
               </Button>
             </div>
 
@@ -800,13 +1271,25 @@ export default function ItemDetailPage() {
         <ReviewsSection itemId={itemId} />
       </motion.div>
 
-      {/* Order Modal */}
+      {/* Modals */}
       <OrderModal
         open={orderOpen}
         onOpenChange={setOrderOpen}
         itemId={itemId}
         itemName={item.name}
         itemPrice={item.price}
+        gstRate={gstRate}
+      />
+      <QrCodeDialog
+        open={qrOpen}
+        onOpenChange={setQrOpen}
+        itemId={id}
+        itemName={item.name}
+      />
+      <InquiryDialog
+        open={inquiryOpen}
+        onOpenChange={setInquiryOpen}
+        itemName={item.name}
       />
     </div>
   );
