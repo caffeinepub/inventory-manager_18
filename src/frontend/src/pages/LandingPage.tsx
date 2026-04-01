@@ -133,12 +133,16 @@ export default function LandingPage() {
   return (
     <div className="flex flex-col">
       {/* ── Hero ─────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-sky-100 via-blue-50 to-white dark:from-primary/20 dark:via-background dark:to-background pt-20 pb-28 px-4">
-        <div className="pointer-events-none absolute -top-32 -left-32 w-96 h-96 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 right-0 w-72 h-72 rounded-full bg-primary/8 blur-2xl" />
-
+      <section
+        className="relative overflow-hidden pt-24 pb-32 px-4"
+        style={{
+          minHeight: "100vh",
+          background:
+            "linear-gradient(135deg, #020b18 0%, #041428 40%, #061d35 70%, #030e1c 100%)",
+        }}
+      >
         <motion.div
-          className="relative container max-w-4xl mx-auto text-center flex flex-col items-center gap-6"
+          className="relative z-10 container max-w-4xl mx-auto text-center flex flex-col items-center gap-8"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
@@ -151,38 +155,80 @@ export default function LandingPage() {
             />
           </motion.div>
 
-          <motion.h1
+          {/* Title */}
+          <motion.div
             variants={fadeUp}
-            className="font-display font-700 text-4xl sm:text-5xl lg:text-6xl text-foreground tracking-tight leading-tight"
+            className="flex flex-col items-center gap-3"
           >
-            {t("landing.hero_title_1")}{" "}
-            <span className="text-primary">{t("landing.hero_title_2")}</span>
-          </motion.h1>
+            <h1 className="text-4xl sm:text-6xl font-bold text-white tracking-tight leading-tight">
+              StockVault
+            </h1>
+            <p
+              className="text-sm sm:text-base font-medium"
+              style={{ color: "rgba(160, 210, 255, 0.75)" }}
+            >
+              Your inventory under control
+            </p>
+          </motion.div>
 
           <motion.p
             variants={fadeUp}
-            className="text-base sm:text-lg text-muted-foreground max-w-xl leading-relaxed"
+            className="text-base sm:text-lg max-w-xl leading-relaxed"
+            style={{ color: "rgba(180, 220, 255, 0.75)" }}
           >
             {t("landing.hero_description")}
           </motion.p>
 
           <motion.div
             variants={fadeUp}
-            className="flex gap-3 flex-wrap justify-center"
+            className="flex gap-4 flex-wrap justify-center"
           >
+            {/* Premium Cyan Browse Button */}
+            <Link to="/inventory">
+              <button
+                type="button"
+                data-ocid="landing.hero_button"
+                className="group relative px-10 py-4 text-base font-bold rounded-xl transition-all duration-300 cursor-pointer"
+                style={{
+                  background: "transparent",
+                  border: "2px solid #00d4ff",
+                  color: "#00d4ff",
+                  fontSize: "1rem",
+                  letterSpacing: "0.04em",
+                  boxShadow:
+                    "0 0 18px rgba(0, 212, 255, 0.25), inset 0 0 18px rgba(0, 212, 255, 0.05)",
+                }}
+                onMouseEnter={(e) => {
+                  const el = e.currentTarget;
+                  el.style.boxShadow =
+                    "0 0 35px rgba(0, 212, 255, 0.6), 0 0 70px rgba(0, 212, 255, 0.25), inset 0 0 30px rgba(0, 212, 255, 0.12)";
+                  el.style.background = "rgba(0, 212, 255, 0.08)";
+                  el.style.color = "#ffffff";
+                  el.style.borderColor = "#00eaff";
+                  el.style.transform = "translateY(-2px) scale(1.02)";
+                }}
+                onMouseLeave={(e) => {
+                  const el = e.currentTarget;
+                  el.style.boxShadow =
+                    "0 0 18px rgba(0, 212, 255, 0.25), inset 0 0 18px rgba(0, 212, 255, 0.05)";
+                  el.style.background = "transparent";
+                  el.style.color = "#00d4ff";
+                  el.style.borderColor = "#00d4ff";
+                  el.style.transform = "translateY(0) scale(1)";
+                }}
+              >
+                {t("landing.hero_cta")}
+              </button>
+            </Link>
             <Button
               asChild
               size="lg"
-              className="font-600 px-8 cursor-pointer hover:opacity-90 active:scale-95 transition-all duration-200"
-              data-ocid="landing.hero_button"
-            >
-              <Link to="/inventory">{t("landing.hero_cta")}</Link>
-            </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="border-primary/40 text-primary cursor-pointer hover:bg-primary/10 hover:border-primary hover:text-primary active:scale-95 transition-all duration-200"
+              variant="ghost"
+              className="cursor-pointer transition-all duration-200"
+              style={{
+                color: "rgba(180,220,255,0.7)",
+                border: "1px solid rgba(0,200,255,0.2)",
+              }}
               data-ocid="landing.admin_link"
             >
               <Link to="/admin">
